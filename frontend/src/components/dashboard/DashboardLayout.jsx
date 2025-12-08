@@ -5,8 +5,8 @@ import StatsCards from "./StatsCards";
 import FieldMap from "./FieldMap";
 import VegetationIndexCard from "./VegetationIndexCard";
 import NewsSection from "./NewsSection";
-import AIAssistant from "./AIAssistant";
-import { Bot, Trash2 } from "lucide-react";
+import KisanMitraChat from "./KisanMitraChat";
+import { Bot, Trash2, MessageCircle } from "lucide-react";
 import { db } from "../../firebase/firebase";
 import { collection, getDocs, doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
 
@@ -16,6 +16,8 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [alertsData, setAlertsData] = useState({ total: 0, highPriority: 0 });
   const [heatmapOverlay, setHeatmapOverlay] = useState(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatMinimized, setIsChatMinimized] = useState(false);
 
   // Fetch alerts for selected field
   useEffect(() => {
@@ -302,38 +304,56 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
           </div>
           )}
 
-          {/* AI ASSISTANCE SECTION */}
-          <section
-            id="ai-assistance"
-            className="mt-10 scroll-mt-24"
-            aria-label="AI Assistance"
-          >
-            {/* Section Header */}
-            <div className="flex flex-col gap-2 mb-4 md:mb-6">
-              <div className="inline-flex items-center gap-2 text-green-700 text-sm font-semibold bg-green-50 px-3 py-1 rounded-full w-fit border border-green-100">
-                <Bot className="h-4 w-4" />
-                <span>AI Assistance</span>
-              </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-gray-900">
-                  Smart help for your farm
-                </h2>
-                <p className="text-sm md:text-base text-gray-600 mt-1 max-w-2xl">
-                  Ask questions about soil health, fertilizer dose, irrigation, and pest control.
-                  The AI will respond in simple farmer-friendly English.
-                </p>
-              </div>
-            </div>
-
-            {/* Section Body */}
-            <div className="bg-white/80 backdrop-blur-sm border border-green-100 rounded-3xl shadow-lg shadow-green-100/40 p-3 md:p-4 lg:p-5">
-              <AIAssistant />
-            </div>
-          </section>
-
           <NewsSection selectedField={selectedField} />
         </div>
       </div>
+
+      {/* Floating Kisan Mitra Button */}
+      {!isChatOpen && (
+        <button
+          onClick={() => {
+            setIsChatOpen(true);
+            setIsChatMinimized(false);
+          }}
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-green-600 hover:bg-green-700 text-white px-4 py-3 sm:px-5 sm:py-3.5 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-200 flex items-center gap-3 z-40"
+          aria-label="Open Kisan Mitra Chat"
+        >
+          <div className="relative">
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+              <MessageCircle className="h-6 w-6 text-green-600" />
+            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div>
+          </div>
+          <div className="flex flex-col items-start">
+            <span className="font-bold text-base sm:text-lg">Kisan Mitra</span>
+            <span className="text-xs text-white">AI Assistant</span>
+          </div>
+        </button>
+      )}
+
+      {/* Kisan Mitra Chat Widget */}
+      <KisanMitraChat
+        isOpen={isChatOpen && !isChatMinimized}
+        onClose={() => setIsChatOpen(false)}
+        onMinimize={() => setIsChatMinimized(true)}
+      />
+
+      {/* Minimized Chat Button */}
+      {isChatMinimized && (
+        <button
+          onClick={() => {
+            setIsChatMinimized(false);
+            setIsChatOpen(true);
+          }}
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-200 flex items-center gap-2.5 z-40"
+          aria-label="Restore Kisan Mitra Chat"
+        >
+          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+            <MessageCircle className="h-5 w-5 text-green-600" />
+          </div>
+          <span className="font-bold text-sm sm:text-base">Kisan Mitra</span>
+        </button>
+      )}
     </>
   );
 };
