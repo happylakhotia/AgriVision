@@ -11,7 +11,8 @@ import {
   DollarSign,
   User,
   Leaf,
-  Bug
+  Bug,
+  FlaskConical
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -24,6 +25,7 @@ const Sidebar = () => {
     { icon: MapPin, name: "Farm Selection", href: "/farm-selection" },
     { icon: Leaf, name: "Disease Detection", href: "/disease-detection"},
     { icon: Bug, name: "Pest-Scanner", href: "/pest-scanner"},
+    { icon: FlaskConical, name: "Soil Analysis", href: "/soil-analysis"},
     { icon: BarChart3, name: "Analytics", href: "#" },
     { icon: Bell, name: "Alerts", href: "/alerts" },
     { icon: FileText, name: "Reports", href: "#" },

@@ -93,6 +93,70 @@ const AIAssistant = () => {
     });
   };
 
+  // Function to format text by removing markdown syntax and rendering properly
+  const formatMessageText = (text) => {
+    if (!text) return "";
+    
+    // First, handle bold syntax (**text** or __text__) - remove the markers
+    let formatted = text
+      .replace(/\*\*(.*?)\*\*/g, (match, content) => content)
+      .replace(/__(.*?)__/g, (match, content) => content);
+    
+    // Handle italic syntax - be careful with single asterisks
+    // Replace *text* but not **text** (already handled) or standalone asterisks
+    formatted = formatted.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, (match, content) => {
+      // Skip if it's part of a list or number pattern
+      if (/^\d+\./.test(content.trim()) || /^[-*]\s/.test(content.trim())) {
+        return match;
+      }
+      return content;
+    });
+    
+    // Split by lines to handle multi-line text
+    const lines = formatted.split('\n');
+    
+    return lines.map((line, lineIndex) => {
+      const trimmedLine = line.trim();
+      
+      // Skip empty lines but preserve spacing
+      if (!trimmedLine) {
+        return <React.Fragment key={lineIndex}>{lineIndex > 0 && <br />}</React.Fragment>;
+      }
+      
+      // Handle numbered lists (1. text or 1) text)
+      const numberedMatch = trimmedLine.match(/^(\d+)\.\s*(.+)$/);
+      if (numberedMatch) {
+        return (
+          <React.Fragment key={lineIndex}>
+            {lineIndex > 0 && <br />}
+            <span>
+              <strong className="font-semibold">{numberedMatch[1]}.</strong> {numberedMatch[2]}
+            </span>
+          </React.Fragment>
+        );
+      }
+      
+      // Handle bullet points (- or *) - convert to bullet
+      const bulletMatch = trimmedLine.match(/^[-*]\s+(.+)$/);
+      if (bulletMatch) {
+        return (
+          <React.Fragment key={lineIndex}>
+            {lineIndex > 0 && <br />}
+            <span>• {bulletMatch[1]}</span>
+          </React.Fragment>
+        );
+      }
+      
+      // Regular line - preserve it
+      return (
+        <React.Fragment key={lineIndex}>
+          {lineIndex > 0 && <br />}
+          <span>{line}</span>
+        </React.Fragment>
+      );
+    });
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-xl overflow-hidden">
       {/* Enhanced Header */}
@@ -180,7 +244,9 @@ const AIAssistant = () => {
                     ? 'bg-blue-500 text-white'
                     : 'bg-white border border-gray-200 text-gray-800'
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                  <div className="text-sm leading-relaxed">
+                    {message.sender === 'bot' ? formatMessageText(message.text) : message.text}
+                  </div>
                   <p className={`text-xs mt-1 ${
                     message.sender === 'user' ? 'text-blue-100' : 'text-gray-500'
                   }`}>

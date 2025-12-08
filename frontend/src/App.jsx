@@ -11,6 +11,7 @@ import Features from "./pages/Features";
 import Alerts from "./pages/Alerts";
 import LiveCheck from './pages/LiveCheck'
 import PestScanner from './pages/PestScanner'
+import SoilAnalysis from './pages/SoilAnalysis'
 import './App.css'
 
 
@@ -35,6 +36,7 @@ function App() {
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/disease-detection" element={<LiveCheck/>}/>
           <Route path="/pest-scanner" element={<PestScanner/>}/>
+          <Route path="/soil-analysis" element={<SoilAnalysis/>}/>
 
           {/* Catch all - redirect to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -7,10 +7,13 @@ import { doc, getDoc } from "firebase/firestore";
 const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
   const mapRef = useRef(null);
   const searchRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const userLocationMarkerRef = useRef(null);
   const { currentUser } = useAuth();
   const [fieldCoordinates, setFieldCoordinates] = useState(null);
   const [centroid, setCentroid] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [locationFetched, setLocationFetched] = useState(false);
 
   // Fetch user location
   useEffect(() => {
@@ -29,8 +32,10 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
             });
           }
         }
+        setLocationFetched(true);
       } catch (error) {
         console.error("Error fetching user location:", error);
+        setLocationFetched(true);
       }
     };
 
@@ -38,23 +43,27 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
   }, [currentUser]);
 
   // -----------------------------------------
-  // Load Google Maps and Initialize the Map
+  // Load Google Maps and Initialize the Map (only once)
   // -----------------------------------------
   useEffect(() => {
-    function initMap(location) {
-      // Use provided location or default
-      const startLoc = location || { lat: 17.3266, lng: 78.1695 };
+    if (!mapRef.current || !locationFetched || mapInstanceRef.current) return;
+
+    function initMap() {
+      // Use user location if available, otherwise default to Hyderabad
+      const startLoc = userLocation || { lat: 17.3266, lng: 78.1695 };
 
       const map = new window.google.maps.Map(mapRef.current, {
         center: startLoc,
-        zoom: location ? 17 : 13,
+        zoom: userLocation ? 15 : 13,
         mapTypeId: "satellite",
       });
 
+      mapInstanceRef.current = map;
+
       // Show user location marker if available
-      if (location) {
-        new window.google.maps.Marker({
-          position: location,
+      if (userLocation) {
+        userLocationMarkerRef.current = new window.google.maps.Marker({
+          position: userLocation,
           map,
           title: "Your Location",
           icon: {
@@ -151,8 +160,42 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
       );
     }
 
-    loadGoogleMaps(() => initMap(userLocation));
-  }, [userLocation]);
+    // Only initialize map if Google Maps is loaded
+    loadGoogleMaps(() => {
+      // Initialize map with user location if available, otherwise use default
+      initMap();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationFetched]); // Initialize once when location is fetched, userLocation handled separately
+
+  // Update map center when user location becomes available after initial load
+  useEffect(() => {
+    // Only update if map is already initialized and user location is available
+    if (!mapInstanceRef.current || !userLocation || !locationFetched) return;
+
+    // Update map center to user location
+    mapInstanceRef.current.setCenter(userLocation);
+    mapInstanceRef.current.setZoom(15);
+
+    // Add or update user location marker
+    if (userLocationMarkerRef.current) {
+      userLocationMarkerRef.current.setMap(null);
+    }
+    
+    userLocationMarkerRef.current = new window.google.maps.Marker({
+      position: userLocation,
+      map: mapInstanceRef.current,
+      title: "Your Location",
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: "#4285F4",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+      },
+    });
+  }, [userLocation, locationFetched]);
 
   // -----------------------------------------
   // Helpers
