@@ -136,7 +136,7 @@ export default function Alerts() {
   const { currentUser, userLoggedIn } = useAuth();
   const navigate = useNavigate();
 
-  // 🔥 Real alerts will be stored here
+  // Alerts storage
   const [alerts, setAlerts] = useState({
     daily: [],
     weekly: [],
@@ -157,15 +157,72 @@ export default function Alerts() {
   };
 
   /* ----------------------------------------------------
-     2. LSTM API + convert into alert UI format
+     2. LSTM API + convert into alert UI format (FULL)
   ---------------------------------------------------- */
-  const API_URL = "https://itvi-1234-lstm.hf.space/predict";
+  const API_URL = "https://itvi-1234-lstmnew.hf.space/predict";
+
+  // small text cleaner
+  const clean = (t) => {
+    if (!t && t !== 0) return "";
+    try {
+      return String(t)
+        .replace(/Day \d+:/gi, "")
+        .replace(/Action:/gi, "")
+        .replace(/Warning:/gi, "")
+        .replace(/Status:/gi, "")
+        .trim();
+    } catch {
+      return String(t);
+    }
+  };
+
+  // collect + clean + dedupe advisory entries
+  const getFullAdvisory = (adv) => {
+    if (!adv) return [];
+    const all = [
+      ...(adv.alerts || []),
+      ...(adv.action || []),
+      ...(adv.warning || []),
+      ...(adv.status || []),
+    ];
+    const cleaned = all.map((t) => clean(t)).filter(Boolean);
+    // preserve order but remove exact duplicates
+    const seen = new Set();
+    const out = [];
+    for (const item of cleaned) {
+      if (!seen.has(item)) {
+        seen.add(item);
+        out.push(item);
+      }
+    }
+    return out;
+  };
+
+  const buildAlert = (key, title, forecast = {}, advisory = {}, stressIndex = 0) => {
+    const ndvi = forecast.ndvi ?? forecast.NDVI ?? "-";
+    const sm = forecast.sm ?? forecast.SM ?? "-";
+    const disease = forecast.disease_risk ?? 0;
+    const pest = forecast.pest_risk ?? 0;
+
+    // priority: if any risk > 60 or stressIndex > 60 -> high
+    const priority = (Number(disease) > 60 || Number(pest) > 60 || Number(stressIndex) > 60) ? "high" : "medium";
+
+    return {
+      id: `${key}_full`,
+      title,
+      description: `NDVI = ${ndvi}\nMoisture = ${sm}\nDisease Risk = ${disease}%\nPest Risk = ${pest}%`,
+      priority,
+      actions: getFullAdvisory(advisory),
+      timestamp: title,
+      raw: { forecast, advisory }, // keep raw if you want expansion later
+    };
+  };
 
   const runLSTM = useCallback(async (latVal, lonVal) => {
     console.log("🌾 Running LSTM with coordinates:", latVal, lonVal);
     setLoading(true);
     setError(null);
-    
+
     try {
       const resp = await fetch(API_URL, {
         method: "POST",
@@ -176,56 +233,48 @@ export default function Alerts() {
       console.log("📡 LSTM API Response status:", resp.status);
       const result = await resp.json();
       console.log("📊 LSTM API Result:", result);
-      
-      if (!result.success) {
+
+      if (!result || !result.success) {
         setError("LSTM API returned unsuccessful response");
+        setAlerts({ daily: [], weekly: [], biweekly: [] });
         setLoading(false);
         return;
       }
 
-      const data = result.data;
+      const data = result.data || {};
 
-      // 🔥 Map LSTM output → Your alert card UI structure
+      // Defensive checks for forecast + advisory_report
+      const forecast = data.forecast || {};
+      const advisory = data.advisory_report || {};
+
+      // build one combined card per period (Option A)
       const newAlerts = {
         daily: [
-          {
-            id: "d_ndvi",
-            title: "NDVI Status",
-            description: `NDVI = ${data.current_status.ndvi}. Vegetation status checked.`,
-            priority: data.current_status.ndvi < 0.3 ? "high" : "medium",
-            actions: ["Monitor crop health", "Check irrigation", "Inspect leaf color"],
-            timestamp: "Now",
-          },
-          {
-            id: "d_moisture",
-            title: "Soil Moisture Update",
-            description: `Moisture = ${data.current_status.sm}`,
-            priority: data.current_status.sm < 0.2 ? "high" : "medium",
-            actions: ["Improve irrigation", "Check soil condition"],
-            timestamp: "Now",
-          },
+          buildAlert(
+            "day_1",
+            "Day 1 (Tomorrow)",
+            forecast.day_1 || {},
+            advisory.day_1 || {},
+            data.stress_index ?? 0
+          ),
         ],
-
         weekly: [
-          {
-            id: "w_disease",
-            title: "Disease Risk Forecast",
-            description: `Disease risk = ${data.forecast.day_7.disease_risk}%`,
-            priority: data.forecast.day_7.disease_risk > 60 ? "high" : "medium",
-            actions: ["Spray recommended fungicide", "Remove infected leaves"],
-            timestamp: "Weekly Prediction",
-          },
+          buildAlert(
+            "day_7",
+            "Day 7 (Next Week)",
+            forecast.day_7 || {},
+            advisory.day_7 || {},
+            data.stress_index ?? 0
+          ),
         ],
-
         biweekly: [
-          {
-            id: "b_pest",
-            title: "Pest Risk (14 days)",
-            description: `Pest risk = ${data.forecast.day_14.pest_risk}%`,
-            priority: data.forecast.day_14.pest_risk > 60 ? "high" : "medium",
-            actions: ["Use pest traps", "Spray appropriate insecticide"],
-            timestamp: "Biweekly Forecast",
-          },
+          buildAlert(
+            "day_14",
+            "Day 14 (Two Weeks)",
+            forecast.day_14 || {},
+            advisory.day_14 || {},
+            data.stress_index ?? 0
+          ),
         ],
       };
 
@@ -235,6 +284,7 @@ export default function Alerts() {
     } catch (err) {
       console.error("❌ LSTM Fetch Error:", err);
       setError(err.message || "Failed to fetch alerts");
+      setAlerts({ daily: [], weekly: [], biweekly: [] });
       setLoading(false);
     }
   }, []);
@@ -373,7 +423,7 @@ export default function Alerts() {
           {!loading && !error && (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {currentAlerts.map((alert) => {
-              const conf = priorityConfig[alert.priority];
+              const conf = priorityConfig[alert.priority] || priorityConfig.medium;
               const Icon = conf.icon;
 
               return (
@@ -395,18 +445,22 @@ export default function Alerts() {
                     </div>
 
                     {/* Description */}
-                    <p className="text-sm text-muted-foreground">{alert.description}</p>
+                    <pre className="text-sm text-muted-foreground whitespace-pre-wrap">{alert.description}</pre>
 
                     {/* Action List */}
                     <div className="space-y-2 pt-2 border-t">
-                      <p className="text-xs font-semibold uppercase">Actions</p>
+                      <p className="text-xs font-semibold uppercase">Advisory</p>
                       <ul className="space-y-1.5">
-                        {alert.actions.map((a, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm">
-                            <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                            <span className="text-muted-foreground">{a}</span>
-                          </li>
-                        ))}
+                        {(alert.actions && alert.actions.length > 0) ? (
+                          alert.actions.map((a, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm">
+                              <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                              <span className="text-muted-foreground">{a}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-xs text-gray-400">No specific advisory.</li>
+                        )}
                       </ul>
                     </div>
 
