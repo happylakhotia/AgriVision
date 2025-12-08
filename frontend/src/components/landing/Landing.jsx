@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
+import logo from "./logo.png";
 
 const Landing = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -28,12 +29,12 @@ const Landing = () => {
       {/* Navbar */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-neutral-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-20">
             <div className="shrink-0">
               <img
-                src="https://via.placeholder.com/150x50/22c55e/ffffff?text=AgriVision+AI"
+                src={logo}
                 alt="AgriVision AI"
-                className="h-8 w-auto"
+                className="h-16 w-auto"
               />
             </div>
 

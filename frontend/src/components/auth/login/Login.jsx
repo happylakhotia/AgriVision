@@ -42,8 +42,19 @@ const Login = () => {
         <>
             {userLoggedIn && (<Navigate to={'/home'} replace={true} />)}
 
+            {/* Background Gradient Fallback */}
+            <div className="background-fallback"></div>
+
             {/* Background Video */}
-            <video className="background-video" autoPlay loop muted playsInline>
+            <video 
+                className="background-video" 
+                autoPlay 
+                loop 
+                muted 
+                playsInline
+                preload="auto"
+                poster="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1920&h=1080&fit=crop"
+            >
                 <source src="https://github.com/AvinashJ74/AgriShop/assets/83860778/dcc330e0-3690-48f4-a135-073c038b6b38" type='video/mp4' />
             </video>
 
