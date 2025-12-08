@@ -4,12 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { useSidebar } from "../../contexts/sidebarcontext/SidebarContext";
 import { Menu } from "lucide-react";
 import logo from "./logo.png";
+import LanguageSelector from "../../LanguageSelector";
+import { useTranslation } from "react-i18next";
 
 const Navbar = ({ onLogout, currentUser }) => {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toggleSidebar } = useSidebar();
 
@@ -55,7 +58,7 @@ const Navbar = ({ onLogout, currentUser }) => {
             className="h-10 w-auto"
           />
           <span className="text-xl font-semibold text-gray-900">
-            AgriVision AI
+            {t("brand_ai")}
           </span>
         </div>
 
@@ -67,12 +70,15 @@ const Navbar = ({ onLogout, currentUser }) => {
             className="h-8 w-auto"
           />
           <span className="text-lg font-semibold text-gray-900">
-            AgriVision AI
+            {t("brand_ai")}
           </span>
         </div>
 
         {/* Right section with profile */}
         <div className="flex-1 flex items-center justify-end px-4 py-3 min-w-0 relative">
+          <div className="hidden md:block mr-4">
+            <LanguageSelector />
+          </div>
           <div className="relative">
             <button
               ref={buttonRef}
@@ -132,14 +138,14 @@ const Navbar = ({ onLogout, currentUser }) => {
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                 >
-                  Profile
+                  {t("profile")}
                 </button>
 
                 <button
                   onClick={onLogout}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  Logout
+                  {t("nav_logout")}
                 </button>
               </div>,
               document.body

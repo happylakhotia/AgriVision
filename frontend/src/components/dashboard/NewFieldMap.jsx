@@ -3,8 +3,10 @@ import FieldDetailsDrawer from "./FieldDetailsDrawer";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 
 const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
+  const { t } = useTranslation();
   const mapRef = useRef(null);
   const searchRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -248,7 +250,7 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
       {/* MAP CONTAINER (unchanged UI) */}
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="p-4 border-b flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Field Map</h2>
+          <h2 className="text-xl font-semibold">{t("field_map_title")}</h2>
         </div>
 
         {/* REAL GOOGLE MAP */}
@@ -256,7 +258,7 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
           <input
             ref={searchRef}
             type="text"
-            placeholder="Search farm location..."
+            placeholder={t("field_map_search_placeholder")}
             className="absolute z-10 mt-3 ml-3 px-3 py-2 bg-white border rounded shadow"
           />
 
@@ -264,12 +266,31 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
         </div>
       </div>
 
-      {/* Info Message */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-800">
-          <strong>Instructions:</strong> Draw your field boundaries on the map using the polyline tool. 
-          A drawer will open automatically to add field details. You can add multiple fields by drawing them one by one.
-        </p>
+      {/* Info Message and Buttons */}
+      <div className="space-y-4 mt-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            <strong>Instructions:</strong> Draw your field boundaries on the map using the polyline tool. A drawer will open automatically to add field details. You can add multiple fields by drawing them one by one.
+          </p>
+        </div>
+
+        <div className="flex justify-between">
+          <button
+            className="w-[48%] py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            onClick={() => setShowDrawer(true)}
+            disabled={!centroid}
+          >
+            {centroid ? t("field_add_details") : t("field_draw_first")}
+          </button>
+
+          <button
+            className="w-[48%] py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            onClick={() => setShowDrawer(true)}
+            disabled={!centroid}
+          >
+            {centroid ? t("field_save_field") : t("field_no_field_selected")}
+          </button>
+        </div>
       </div>
 
       {/* Drawer */}

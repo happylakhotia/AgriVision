@@ -3,11 +3,13 @@ import { MapPin } from "lucide-react";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 
 const DEFAULT_CENTER = { lat: 17.3266, lng: 78.1695 };
 
 const FieldMap = ({ field }) => {
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   const mapRef = useRef(null);
   const [savedCoordinates, setSavedCoordinates] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
@@ -146,12 +148,12 @@ const FieldMap = ({ field }) => {
     <div className="rounded-2xl border border-gray-200 shadow-md bg-white/70 backdrop-blur-xl">
       <div className="p-4 border-b border-gray-200 flex items-center gap-2 bg-white/50 backdrop-blur-md rounded-t-2xl">
         <MapPin className="h-5 w-5 text-green-600" />
-        <h2 className="text-lg font-semibold text-gray-700">Map of {field.name}</h2>
+        <h2 className="text-lg font-semibold text-gray-700">Field Map</h2>
       </div>
 
       <div className="p-4 space-y-3">
         {loading && (
-          <p className="text-sm text-gray-500">Loading your saved field and location...</p>
+          <p className="text-sm text-gray-500">{t("field_map_loading")}</p>
         )}
         {error && (
           <p className="text-sm text-red-600">{error}</p>
@@ -161,12 +163,12 @@ const FieldMap = ({ field }) => {
           {!savedCoordinates?.length && !loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-4">
               <p className="text-gray-700 font-medium text-lg">
-                {userLocation ? "Draw your field in Farm Selection to see it here." : "Draw your field in Farm Selection to see it here."}
+                {t("field_map_no_field_title")}
               </p>
               <p className="text-sm text-gray-500">
                 {userLocation 
-                  ? "We will show the exact area you drew on the Farm Selection map. Your current location is marked."
-                  : "We will show the exact area you drew on the Farm Selection map."}
+                  ? t("field_map_no_field_desc_with_location")
+                  : t("field_map_no_field_desc_without_location")}
               </p>
             </div>
           )}

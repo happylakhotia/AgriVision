@@ -3,12 +3,15 @@ import { Sprout, ChevronDown, RefreshCw, Loader2 } from "lucide-react";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 
 const VegetationIndexCard = ({ field }) => {
   const { currentUser } = useAuth();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [ndviData, setNdviData] = useState(null);
   const [error, setError] = useState(null);
+  
   const [coordinates, setCoordinates] = useState(null);
   
   // Default Index Type
@@ -110,7 +113,9 @@ const VegetationIndexCard = ({ field }) => {
       <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white/50 backdrop-blur-md rounded-t-2xl">
         <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
           <Sprout className="h-5 w-5 text-green-600" />
-          Vegetation Index for {field.name}
+          {field && field.name
+            ? `${t("vegetation_index")} - ${field.name}`
+            : t("vegetation_index")}
         </h3>
 
         <div className="flex gap-2">

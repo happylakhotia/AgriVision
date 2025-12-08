@@ -25,12 +25,14 @@ import {
   Store,
   Briefcase
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser } = useAuth();
   const { isOpen, closeSidebar } = useSidebar();
+  const { t } = useTranslation();
   // Initialize from sessionStorage first to avoid flash
   const [userType, setUserType] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -87,26 +89,26 @@ const Sidebar = () => {
   };
 
   const farmerMenuItems = [
-    { icon: LayoutDashboard, name: "Dashboard", href: "/home" },
-    { icon: MapPin, name: "Farm Selection", href: "/farm-selection" },
-    { icon: Leaf, name: "Disease Detection", href: "/disease-detection"},
-    { icon: Bug, name: "Pest-Scanner", href: "/pest-scanner"},
-    { icon: FlaskConical, name: "Soil Analysis", href: "/soil-analysis"},
-    { icon: Package, name: "Logistics", href: "/logistics"},
-    { icon: Shield, name: "Insurance", href: "/insurance"},
-    { icon: Wrench, name: "Machinery", href: "/machinery"},
-    { icon: Users, name: "Find Customers", href: "/find-customers"},
-    { icon: BarChart3, name: "Analytics", href: "#" },
-    { icon: Bell, name: "Alerts", href: "/alerts" },
-    { icon: User, name: "Account", href: "/profile" },
+    { icon: LayoutDashboard, key: "sidebar_dashboard", href: "/home" },
+    { icon: MapPin, key: "sidebar_farm_selection", href: "/farm-selection" },
+    { icon: Leaf, key: "sidebar_disease_detection", href: "/disease-detection"},
+    { icon: Bug, key: "sidebar_pest_scanner", href: "/pest-scanner"},
+    { icon: FlaskConical, key: "sidebar_soil_analysis", href: "/soil-analysis"},
+    { icon: Package, key: "sidebar_logistics", href: "/logistics"},
+    { icon: Shield, key: "sidebar_insurance", href: "/insurance"},
+    { icon: Wrench, key: "sidebar_machinery", href: "/machinery"},
+    { icon: Users, key: "sidebar_find_customers", href: "/find-customers"},
+    { icon: BarChart3, key: "sidebar_analytics", href: "#" },
+    { icon: Bell, key: "sidebar_alerts", href: "/alerts" },
+    { icon: User, key: "sidebar_account", href: "/profile" },
   ];
 
   const vendorMenuItems = [
-    { icon: LayoutDashboard, name: "Dashboard", href: "/home" },
-    { icon: Store, name: "Vendor Dashboard", href: "/vendor-dashboard" },
-    { icon: Briefcase, name: "Opportunities", href: "/vendor-opportunities" },
-    { icon: Bell, name: "Alerts", href: "/alerts" },
-    { icon: User, name: "Account", href: "/profile" },
+    { icon: LayoutDashboard, key: "sidebar_dashboard", href: "/home" },
+    { icon: Store, key: "sidebar_vendor_dashboard", href: "/vendor-dashboard" },
+    { icon: Briefcase, key: "sidebar_vendor_opportunities", href: "/vendor-opportunities" },
+    { icon: Bell, key: "sidebar_alerts", href: "/alerts" },
+    { icon: User, key: "sidebar_account", href: "/profile" },
   ];
 
   // Determine menu items based on userType, but don't render until we know the type
@@ -176,7 +178,7 @@ const Sidebar = () => {
                       `}
                     >
                       <item.icon className="w-5 h-5" />
-                      <span>{item.name}</span>
+                      <span>{t(item.key)}</span>
                     </a>
                   </li>
                 );
