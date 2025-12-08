@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { CloudRain, Cloud, Sun, CloudDrizzle, Wind, Thermometer, MapPin, Loader2, RefreshCw, AlertTriangle } from "lucide-react";
+import { CloudRain, Cloud, Sun, CloudDrizzle, Wind, Thermometer, MapPin, Loader2, RefreshCw, AlertTriangle, MapPinned } from "lucide-react";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -13,21 +13,23 @@ const NewsSection = () => {
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [fieldLocation, setFieldLocation] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [usingFieldLocation, setUsingFieldLocation] = useState(false);
   const [locationAttempted, setLocationAttempted] = useState(false);
   const retryCountRef = useRef(0);
-  const maxRetries = 3; // Reduced retries since we'll request location directly
+  const maxRetries = 3;
 
   useEffect(() => {
     if (currentUser) {
-      console.log("🔍 Current user detected, fetching location...");
-      fetchUserLocation();
+      console.log("🔍 Current user detected, fetching field and location data...");
+      fetchFieldAndLocation();
     } else {
       setLoading(false);
     }
   }, [currentUser]);
 
-  const fetchUserLocation = async () => {
+  const fetchFieldAndLocation = async () => {
     if (!currentUser) {
       console.log("❌ No current user");
       setLoading(false);
@@ -35,13 +37,51 @@ const NewsSection = () => {
     }
 
     try {
-      console.log(`📍 Fetching user location from Firestore (attempt ${retryCountRef.current + 1}/${maxRetries + 1})...`);
+      console.log(`📍 Fetching field and location data (attempt ${retryCountRef.current + 1}/${maxRetries + 1})...`);
+      
+      // Fetch field data first (priority)
+      const fieldRef = doc(db, "fields", currentUser.uid);
+      const fieldSnap = await getDoc(fieldRef);
+      
+      let fieldData = null;
+      if (fieldSnap.exists()) {
+        fieldData = fieldSnap.data();
+        console.log("🌾 Field data found:", {
+          hasField: true,
+          lat: fieldData.lat,
+          lng: fieldData.lng,
+          fieldName: fieldData.fieldName,
+          cropName: fieldData.cropName
+        });
+        
+        if (fieldData.lat && fieldData.lng) {
+          const location = {
+            lat: fieldData.lat,
+            lon: fieldData.lng, // Note: OpenWeather uses 'lon' not 'lng'
+            fieldName: fieldData.fieldName || "Your Field",
+            cropName: fieldData.cropName
+          };
+          setFieldLocation(location);
+          setUsingFieldLocation(true);
+          setError(null);
+          retryCountRef.current = 0;
+          
+          console.log("✅ Using FIELD location for weather:", location);
+          await fetchWeatherData(location.lat, location.lon, location.fieldName);
+          return; // Exit early - we have field location
+        }
+      } else {
+        console.log("⚠️ No field data found");
+      }
+      
+      // Fallback: Try to get user location if no field
+      console.log("📍 No field found, trying user location...");
       const userRef = doc(db, "users", currentUser.uid);
       const userSnap = await getDoc(userRef);
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        console.log("📦 User data:", {
+        console.log("👤 User data:", {
           hasLocation: !!userData.location,
           latitude: userData.location?.latitude,
           longitude: userData.location?.longitude
@@ -52,41 +92,37 @@ const NewsSection = () => {
             lat: userData.location.latitude,
             lon: userData.location.longitude
           };
-          console.log("✅ Location found in Firestore:", location);
+          console.log("✅ Using USER location for weather:", location);
           setUserLocation(location);
+          setUsingFieldLocation(false);
           setError(null);
           retryCountRef.current = 0;
           
-          // Fetch weather data
-          await fetchWeatherData(location.lat, location.lon);
-        } else {
-          // Location not available in Firestore
-          if (retryCountRef.current < maxRetries) {
-            retryCountRef.current += 1;
-            console.log(`⏳ Location not in Firestore, retrying in 2 seconds...`);
-            
-            setTimeout(() => {
-              fetchUserLocation();
-            }, 2000);
-          } else {
-            console.log("❌ Location not in Firestore after retries, requesting directly from browser...");
-            // After retries, directly request location from browser
-            if (!locationAttempted) {
-              setLocationAttempted(true);
-              requestLocationNow();
-            } else {
-              setError("Location not available. Click 'Enable Location Now' to share your location.");
-              setLoading(false);
-            }
-          }
+          await fetchWeatherData(location.lat, location.lon, "Your Location");
+          return;
         }
+      }
+      
+      // No field and no user location
+      if (retryCountRef.current < maxRetries) {
+        retryCountRef.current += 1;
+        console.log(`⏳ No location data found, retrying in 2 seconds...`);
+        
+        setTimeout(() => {
+          fetchFieldAndLocation();
+        }, 2000);
       } else {
-        console.log("❌ User document not found");
-        setError("User data not found. Please try logging in again.");
-        setLoading(false);
+        console.log("❌ No location available after retries, requesting from browser...");
+        if (!locationAttempted) {
+          setLocationAttempted(true);
+          requestLocationNow();
+        } else {
+          setError("No field or location found. Please draw a field in Farm Selection or enable location access.");
+          setLoading(false);
+        }
       }
     } catch (err) {
-      console.error("❌ Error fetching user location:", err);
+      console.error("❌ Error fetching data:", err);
       setError("Failed to fetch location data. Please try again.");
       setLoading(false);
     }
@@ -99,7 +135,7 @@ const NewsSection = () => {
     setLoading(true);
     setWeatherData(null);
     setLocationAttempted(false);
-    fetchUserLocation();
+    fetchFieldAndLocation();
   };
 
   const requestLocationNow = () => {
@@ -121,11 +157,10 @@ const NewsSection = () => {
     setError(null);
     console.log("⏳ Waiting for location permission...");
 
-    // Use longer timeout and reduce accuracy requirement
     const options = {
-      enableHighAccuracy: false, // Changed to false for faster response
-      timeout: 30000, // Increased to 30 seconds
-      maximumAge: 300000 // Accept cached location up to 5 minutes old
+      enableHighAccuracy: false,
+      timeout: 30000,
+      maximumAge: 300000
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -152,13 +187,15 @@ const NewsSection = () => {
           
           // Update state and fetch weather
           setUserLocation({ lat: latitude, lon: longitude });
-          await fetchWeatherData(latitude, longitude);
+          setUsingFieldLocation(false);
+          await fetchWeatherData(latitude, longitude, "Your Location");
         } catch (err) {
           console.error("❌ Error saving location to Firestore:", err);
           // Even if save fails, still fetch weather
           console.log("⚠️ Fetching weather anyway with obtained location...");
           setUserLocation({ lat: latitude, lon: longitude });
-          await fetchWeatherData(latitude, longitude);
+          setUsingFieldLocation(false);
+          await fetchWeatherData(latitude, longitude, "Your Location");
         }
       },
       (err) => {
@@ -166,13 +203,13 @@ const NewsSection = () => {
         let errorMsg = "Failed to get location. ";
         
         switch(err.code) {
-          case 1: // PERMISSION_DENIED
+          case 1:
             errorMsg += "Please allow location access in your browser. Look for the location icon in your address bar.";
             break;
-          case 2: // POSITION_UNAVAILABLE
+          case 2:
             errorMsg += "Location information is unavailable. Please check your device's location settings.";
             break;
-          case 3: // TIMEOUT
+          case 3:
             errorMsg += "Location request timed out. Please try again or check your internet connection.";
             break;
           default:
@@ -186,14 +223,13 @@ const NewsSection = () => {
     );
   };
 
-  const fetchWeatherData = async (lat, lon) => {
-    console.log(`🌤️ Fetching weather data for lat: ${lat}, lon: ${lon}`);
+  const fetchWeatherData = async (lat, lon, locationName = "Unknown") => {
+    console.log(`🌤️ Fetching weather data for ${locationName} - lat: ${lat}, lon: ${lon}`);
     console.log(`🔑 Using API key: ${OPENWEATHER_API_KEY}`);
     setLoading(true);
     setError(null);
 
     try {
-      // Fetch current weather using axios
       const weatherUrl = `${OPENWEATHER_BASE_URL}/weather`;
       const weatherParams = {
         lat: lat,
@@ -206,12 +242,11 @@ const NewsSection = () => {
       
       const weatherResponse = await axios.get(weatherUrl, {
         params: weatherParams,
-        timeout: 10000 // 10 second timeout
+        timeout: 10000
       });
 
       console.log("✅ Current weather fetched:", weatherResponse.data);
 
-      // Fetch 5-day forecast using axios
       const forecastUrl = `${OPENWEATHER_BASE_URL}/forecast`;
       console.log("📡 Calling forecast API:", forecastUrl);
       
@@ -225,7 +260,8 @@ const NewsSection = () => {
       setWeatherData({
         current: weatherResponse.data,
         forecast: forecastResponse.data,
-        location: weatherResponse.data.name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`
+        location: weatherResponse.data.name || `${lat.toFixed(2)}, ${lon.toFixed(2)}`,
+        locationName: locationName
       });
       
       setError(null);
@@ -308,7 +344,7 @@ const NewsSection = () => {
 
     // Check for rain in forecast (next 24 hours)
     if (forecast && forecast.list) {
-      const next24Hours = forecast.list.slice(0, 8); // Next 24 hours (3-hour intervals)
+      const next24Hours = forecast.list.slice(0, 8);
       const hasRain = next24Hours.some(item => 
         item.weather[0].main === "Rain" || item.weather[0].main === "Drizzle" || item.weather[0].main === "Thunderstorm"
       );
@@ -396,10 +432,25 @@ const NewsSection = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-700">Live Weather News</h2>
           {weatherData && (
-            <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-              <MapPin className="h-3 w-3" />
-              {weatherData.location}
-            </p>
+            <div className="flex flex-col gap-1 mt-1">
+              <p className="text-xs text-gray-500 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {weatherData.location}
+              </p>
+              {usingFieldLocation && fieldLocation && (
+                <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
+                  <MapPinned className="h-3 w-3" />
+                  Using Field Location: {fieldLocation.fieldName}
+                  {fieldLocation.cropName && ` (${fieldLocation.cropName})`}
+                </p>
+              )}
+              {!usingFieldLocation && (
+                <p className="text-xs text-blue-600 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Using Your Live Location
+                </p>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -423,7 +474,9 @@ const NewsSection = () => {
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 text-green-600 animate-spin mb-3" />
             <span className="text-gray-600 font-medium">Loading weather data...</span>
-            <span className="text-xs text-gray-400 mt-1">Getting your location...</span>
+            <span className="text-xs text-gray-400 mt-1">
+              {usingFieldLocation ? "Getting field weather..." : "Getting your location..."}
+            </span>
           </div>
         )}
 
@@ -453,7 +506,7 @@ const NewsSection = () => {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              💡 Tip: Look for the location icon (📍) in your browser's address bar and allow access.
+              💡 Tip: Draw your field in "Farm Selection" to get weather for your specific field location.
             </p>
           </div>
         )}
