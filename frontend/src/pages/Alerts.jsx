@@ -530,11 +530,11 @@ export default function Alerts() {
                         const field = fields.find(f => f.id === e.target.value);
                         setSelectedField(field);
                       }}
-                      className="px-4 py-2 border border-green-200 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-green-400 text-sm"
+                      className="min-w-[150px] px-4 py-2 border border-green-200 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-green-400 text-sm font-medium text-gray-900"
                     >
-                      {fields.map((field) => (
+                      {fields.map((field, index) => (
                         <option key={field.id} value={field.id}>
-                          {field.name}
+                          Field {index + 1}
                         </option>
                       ))}
                     </select>
@@ -542,14 +542,14 @@ export default function Alerts() {
                 )}
                 
                 {/* Refresh Button */}
-                <button
-                  onClick={loadFieldData}
+              <button
+                onClick={loadFieldData}
                   disabled={loading || !selectedField}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                >
-                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  {loading ? 'Loading...' : 'Refresh'}
-                </button>
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
               </div>
             )}
           </div>

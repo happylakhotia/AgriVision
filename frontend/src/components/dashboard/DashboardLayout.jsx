@@ -14,6 +14,61 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
   const [fields, setFields] = useState([]);
   const [selectedField, setSelectedField] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [alertsData, setAlertsData] = useState({ total: 0, highPriority: 0 });
+
+  // Fetch alerts for selected field
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      if (!selectedField || !selectedField.lat || !selectedField.lng) {
+        setAlertsData({ total: 0, highPriority: 0 });
+        return;
+      }
+
+      try {
+        const response = await fetch("http://localhost:5001/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lat: selectedField.lat,
+            lng: selectedField.lng
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Count total alerts and high priority alerts
+          let total = 0;
+          let highPriority = 0;
+
+          ['daily', 'weekly', 'biweekly'].forEach(period => {
+            if (data[period]) {
+              total += 1; // Each period is one alert
+              
+              // Check if any risk is high (>60)
+              const forecast = data[period];
+              const disease = forecast.disease_risk ?? 0;
+              const pest = forecast.pest_risk ?? 0;
+              const stressIndex = forecast.water_stress_index ?? 0;
+              
+              if (Number(disease) > 60 || Number(pest) > 60 || Number(stressIndex) > 60) {
+                highPriority += 1;
+              }
+            }
+          });
+
+          setAlertsData({ total, highPriority });
+        } else {
+          setAlertsData({ total: 0, highPriority: 0 });
+        }
+      } catch (err) {
+        console.error("Error fetching alerts:", err);
+        setAlertsData({ total: 0, highPriority: 0 });
+      }
+    };
+
+    fetchAlerts();
+  }, [selectedField]);
 
   // Fetch fields from Firebase
   useEffect(() => {
@@ -224,25 +279,25 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
           )}
 
           {/* PASS SELECTED FIELD */}
-          {selectedField && <StatsCards field={selectedField} totalFields={fields.length} />}
+          {selectedField && <StatsCards field={selectedField} totalFields={fields.length} alertsData={alertsData} />}
 
           {/* Larger map + larger vegetation card */}
           {selectedField && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-              {/* BIGGER FIELD MAP */}
-              <div className="lg:col-span-2">
-                <div className="h-[600px]">
+            {/* BIGGER FIELD MAP */}
+            <div className="lg:col-span-2">
+              <div className="h-[600px]">
                   <FieldMap field={selectedField} />
-                </div>
               </div>
+            </div>
 
               {/* BIGGER VEGETATION INDEX - Matched to Field Map height */}
               <div className="h-[600px]">
                 <VegetationIndexCard field={selectedField} />
-              </div>
-
             </div>
+
+          </div>
           )}
 
           {/* AI ASSISTANCE SECTION */}

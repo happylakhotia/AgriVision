@@ -2,14 +2,23 @@ import React from "react";
 import { Leaf, Sprout, Trees, AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-const StatsCards = ({ field, totalFields = 1 }) => {
+const StatsCards = ({ field, totalFields = 1, alertsData = { total: 0, highPriority: 0 } }) => {
   const { t } = useTranslation();
+
+  // Calculate percentage for active fields (assuming max 10 fields as 100%)
+  const fieldPercentage = totalFields > 0 ? Math.min((totalFields / 10) * 100, 100).toFixed(0) : "0";
+  
+  // Calculate high priority percentage (out of total alerts)
+  const highPriorityPercentage = alertsData.total > 0 
+    ? ((alertsData.highPriority / alertsData.total) * 100).toFixed(0)
+    : "0";
 
   const stats = [
     {
       titleKey: "stats_active_fields",
       subtitleKey: "stats_active_fields_sub",
       value: totalFields,
+      percentage: `${fieldPercentage}% from the last week`,
       icon: Trees,
       bg: "bg-green-50",
       border: "border-green-200",
@@ -39,7 +48,8 @@ const StatsCards = ({ field, totalFields = 1 }) => {
     {
       titleKey: "stats_active_alerts",
       subtitleKey: "stats_active_alerts_sub",
-      value: field && field.alerts != null ? field.alerts : "0",
+      value: alertsData.total,
+      percentage: alertsData.total > 0 ? `${highPriorityPercentage}% High Priority` : "",
       icon: AlertTriangle,
       bg: "bg-red-50",
       border: "border-red-200",
@@ -83,6 +93,13 @@ const StatsCards = ({ field, totalFields = 1 }) => {
               <p className={`text-[11px] opacity-60 ${card.text}`}>
                 {t(card.subtitleKey)}
               </p>
+              
+              {/* Show percentage if available */}
+              {card.percentage && (
+                <p className={`text-xs font-semibold ${card.text} mt-1`}>
+                  {card.percentage}
+                </p>
+              )}
             </div>
           </div>
         );

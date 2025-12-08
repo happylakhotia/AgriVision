@@ -98,7 +98,7 @@ const Sidebar = () => {
     { icon: Shield, key: "sidebar_insurance", href: "/insurance"},
     { icon: Wrench, key: "sidebar_machinery", href: "/machinery"},
     { icon: Users, key: "sidebar_find_customers", href: "/find-customers"},
-    { icon: BarChart3, key: "sidebar_analytics", href: "#" },
+    { icon: BarChart3, key: "sidebar_analytics", href: "/analytics" },
     { icon: Bell, key: "sidebar_alerts", href: "/alerts" },
     { icon: User, key: "sidebar_account", href: "/profile" },
   ];
