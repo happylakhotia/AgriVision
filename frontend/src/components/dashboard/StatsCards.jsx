@@ -7,9 +7,9 @@ const StatsCards = ({ field }) => {
 
   const stats = [
     {
-      titleKey: "stats_area",
-      subtitleKey: "stats_area_sub",
-      value: field && field.area != null ? field.area : "--",
+      titleKey: "stats_active_fields",
+      subtitleKey: "stats_active_fields_sub",
+      value: "2",
       icon: Trees,
       bg: "bg-green-50",
       border: "border-green-200",
@@ -27,9 +27,9 @@ const StatsCards = ({ field }) => {
       text: "text-lime-700",
     },
     {
-      titleKey: "stats_ndvi",
-      subtitleKey: "stats_ndvi_sub",
-      value: field && typeof field.ndvi === "number" ? field.ndvi.toFixed(2) : "--",
+      titleKey: "stats_vegetation_indices",
+      subtitleKey: "stats_vegetation_indices_sub",
+      value: field && typeof field.ndvi === "number" ? field.ndvi.toFixed(2) : "0.72",
       icon: Sprout,
       bg: "bg-yellow-50",
       border: "border-yellow-200",
