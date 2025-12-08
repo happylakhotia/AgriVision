@@ -101,6 +101,7 @@ const Sidebar = () => {
     { icon: BarChart3, key: "sidebar_analytics", href: "/analytics" },
     { icon: Bell, key: "sidebar_alerts", href: "/alerts" },
     { icon: User, key: "sidebar_account", href: "/profile" },
+    { icon: FileText, key: "sidebar_reports", href: "/reports" },
   ];
 
   const vendorMenuItems = [

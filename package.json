@@ -2,5 +2,8 @@
   "dependencies": {
     "i18next": "^25.7.1",
     "react-i18next": "^16.4.0"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.32.0"
   }
 }

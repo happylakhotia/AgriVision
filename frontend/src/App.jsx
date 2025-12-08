@@ -22,6 +22,7 @@ import VendorDashboard from './pages/VendorDashboard'
 import VendorOpportunities from './pages/VendorOpportunities'
 import UserTypeSelection from './components/auth/UserTypeSelection'
 import Chat from './pages/Chat'
+import Reports from './pages/Reports'
 import './App.css'
 
 
@@ -56,6 +57,7 @@ function App() {
           <Route path="/find-customers" element={<FindCustomers/>}/>
           <Route path="/vendor-dashboard" element={<VendorDashboard/>}/>
           <Route path="/vendor-opportunities" element={<VendorOpportunities/>}/>
+          <Route path="/reports" element={<Reports/>}/>
           <Route path="/chat/:otherUserId" element={<Chat/>}/>
 
           {/* Catch all - redirect to landing page */}
