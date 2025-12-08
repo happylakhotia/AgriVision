@@ -1,149 +1,108 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo } from "react";
 import { MapPin } from "lucide-react";
-import { useAuth } from "../../contexts/authcontext/Authcontext";
-import { db } from "../../firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
+import { MapContainer, TileLayer, Polygon, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 const DEFAULT_CENTER = { lat: 17.3266, lng: 78.1695 };
 
-const FieldMap = ({ field }) => {
-  const { currentUser } = useAuth();
-  const { t } = useTranslation();
-  const mapRef = useRef(null);
-  const [savedCoordinates, setSavedCoordinates] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+const HeatmapImageOverlay = ({ imageUrl, bounds, polygon, opacity, visible }) => {
+  const map = useMap();
 
-  useEffect(() => {
-    // Prioritize field prop coordinates
-    if (field && field.coordinates && field.coordinates.length > 0) {
-      console.log("🎯 Using selected field coordinates:", field);
-      setSavedCoordinates(field.coordinates);
-      setLoading(false);
-      return;
-    }
+  React.useEffect(() => {
+    if (!map || !imageUrl || !bounds || !polygon?.length || !visible) return undefined;
 
-    if (!currentUser) {
-      setLoading(false);
-      setSavedCoordinates(null);
-      setUserLocation(null);
-      return;
-    }
+    const leafletBounds = L.latLngBounds(
+      [bounds.minLat, bounds.minLng],
+      [bounds.maxLat, bounds.maxLng]
+    );
 
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Fetch field data from Firebase (fallback)
-        const fieldRef = doc(db, "fields", currentUser.uid);
-        const fieldSnap = await getDoc(fieldRef);
-        if (fieldSnap.exists()) {
-          const data = fieldSnap.data();
-          setSavedCoordinates(Array.isArray(data.coordinates) ? data.coordinates : null);
-        } else {
-          setSavedCoordinates(null);
-        }
+    const overlay = L.imageOverlay(imageUrl, leafletBounds, {
+      opacity,
+      interactive: false,
+      className: "heatmap-leaflet-overlay",
+    }).addTo(map);
 
-        // Fetch user location
-        const userRef = doc(db, "users", currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          if (userData.location) {
-            setUserLocation({
-              lat: userData.location.latitude,
-              lng: userData.location.longitude
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error loading data:", err);
-        setError("Failed to load data. Please try again later.");
-        setSavedCoordinates(null);
-        setUserLocation(null);
-      } finally {
-        setLoading(false);
-      }
+    const updateClip = () => {
+      const img = overlay.getElement();
+      if (!img) return;
+
+      const topLeft = map.latLngToLayerPoint(leafletBounds.getNorthWest());
+      const clipPoints = polygon
+        .map((pt) => {
+          const latLng = Array.isArray(pt) ? L.latLng(pt[0], pt[1]) : L.latLng(pt.lat, pt.lng);
+          const projected = map.latLngToLayerPoint(latLng);
+          return `${projected.x - topLeft.x}px ${projected.y - topLeft.y}px`;
+        })
+        .join(", ");
+
+      const clipPath = `polygon(${clipPoints})`;
+      img.style.clipPath = clipPath;
+      img.style.webkitClipPath = clipPath;
     };
 
-    fetchData();
-  }, [currentUser, field]);
+    map.on("zoom", updateClip);
+    map.on("move", updateClip);
+    map.on("viewreset", updateClip);
+    overlay.on("load", updateClip);
+    updateClip();
 
-  // Initialize Google Map
-  useEffect(() => {
-    if (!mapRef.current) return;
+    return () => {
+      map.off("zoom", updateClip);
+      map.off("move", updateClip);
+      map.off("viewreset", updateClip);
+      overlay.remove();
+    };
+  }, [map, imageUrl, bounds, polygon, opacity, visible]);
 
-    loadGoogleMaps(() => {
-      // Use user location as center if available, otherwise use field centroid or default
-      const center = computeCentroid(savedCoordinates) || userLocation || DEFAULT_CENTER;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center,
-        zoom: savedCoordinates?.length ? 17 : (userLocation ? 15 : 13),
-        mapTypeId: "satellite",
-      });
+  return null;
+};
 
-      if (savedCoordinates?.length) {
-        new window.google.maps.Polygon({
-          paths: savedCoordinates,
-          strokeColor: "#00FF00",
-          strokeWeight: 2,
-          fillColor: "#00FF00",
-          fillOpacity: 0.2,
-          map,
-        });
-
-        new window.google.maps.Marker({
-          position: center,
-          map,
-          icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
-          label: {
-            text: field?.name || "Saved Field",
-            color: "white",
-            fontSize: "16px",
-          },
-        });
-      } else if (userLocation) {
-        // Show user location marker when no field is saved
-        new window.google.maps.Marker({
-          position: userLocation,
-          map,
-          title: "Your Location",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#4285F4",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
-        });
-      }
-    });
-  }, [savedCoordinates, userLocation, field]);
-
-  function computeCentroid(coords) {
-    if (!coords?.length) return null;
-    const lat = coords.reduce((sum, point) => sum + (point.lat ?? 0), 0) / coords.length;
-    const lng = coords.reduce((sum, point) => sum + (point.lng ?? 0), 0) / coords.length;
-    return { lat, lng };
-  }
-
-  function loadGoogleMaps(callback) {
-    if (window.google) {
-      callback();
+const FitPolygon = ({ polygon, bounds }) => {
+  const map = useMap();
+  React.useEffect(() => {
+    if (!map) return;
+    if (polygon?.length) {
+      const polyBounds = L.latLngBounds(polygon);
+      map.fitBounds(polyBounds, { padding: [20, 20] });
       return;
     }
+    if (bounds) {
+      const b = L.latLngBounds(
+        [bounds.minLat, bounds.minLng],
+        [bounds.maxLat, bounds.maxLng]
+      );
+      map.fitBounds(b, { padding: [20, 20] });
+    }
+  }, [map, polygon, bounds]);
+  return null;
+};
 
-    const script = document.createElement("script");
-    script.src =
-      "https://maps.googleapis.com/maps/api/js?key=AIzaSyDKR_CVLRbV0lqjy_8JRWZAVDdO5Xl7jRk&libraries=places,drawing";
-    script.async = true;
-    script.defer = true;
-    script.onload = callback;
-    document.body.appendChild(script);
-  }
+const FieldMap = ({ field, heatmapOverlay }) => {
+  const { t } = useTranslation();
+
+  const polygonCoords = useMemo(() => {
+    if (field?.coordinates?.length) {
+      return field.coordinates.map((c) => [c.lat, c.lng]);
+    }
+    return [];
+  }, [field]);
+
+  const centroid = useMemo(() => {
+    if (!polygonCoords.length) return null;
+    const sum = polygonCoords.reduce(
+      (acc, [lat, lng]) => {
+        acc.lat += lat;
+        acc.lng += lng;
+        return acc;
+      },
+      { lat: 0, lng: 0 }
+    );
+    return { lat: sum.lat / polygonCoords.length, lng: sum.lng / polygonCoords.length };
+  }, [polygonCoords]);
+
+  const mapCenter = centroid || DEFAULT_CENTER;
 
   return (
     <div className="rounded-2xl border border-gray-200 shadow-md bg-white/70 backdrop-blur-xl">
@@ -157,28 +116,50 @@ const FieldMap = ({ field }) => {
       </div>
 
       <div className="p-4 space-y-3">
-        {loading && (
-          <p className="text-sm text-gray-500">{t("field_map_loading")}</p>
-        )}
-        {error && (
-          <p className="text-sm text-red-600">{error}</p>
-        )}
-
         <div className="relative h-[500px] rounded-2xl border border-gray-200 shadow-inner bg-gray-100 overflow-hidden">
-          {!savedCoordinates?.length && !loading && (
+          {!polygonCoords.length && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-4 z-10 bg-white/90">
               <p className="text-gray-700 font-medium text-lg">
                 {t("field_map_no_field_title")}
               </p>
               <p className="text-sm text-gray-500">
-                {userLocation 
-                  ? t("field_map_no_field_desc_with_location")
-                  : t("field_map_no_field_desc_without_location")}
+                {t("field_map_no_field_desc_without_location")}
               </p>
             </div>
           )}
 
-          <div ref={mapRef} className="w-full h-full"></div>
+          <MapContainer
+            center={mapCenter}
+            zoom={17}
+            className="w-full h-full"
+            scrollWheelZoom
+          >
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+            />
+            <FitPolygon polygon={polygonCoords} bounds={heatmapOverlay?.bounds} />
+            {polygonCoords.length > 0 && (
+              <Polygon
+                positions={polygonCoords}
+                pathOptions={{
+                  color: "#22c55e",
+                  weight: 2,
+                  fillColor: "#22c55e",
+                  fillOpacity: 0.18,
+                }}
+              />
+            )}
+            {heatmapOverlay?.heatmapUrl && heatmapOverlay?.bounds && (
+              <HeatmapImageOverlay
+                imageUrl={heatmapOverlay.heatmapUrl}
+                bounds={heatmapOverlay.bounds}
+                polygon={heatmapOverlay.polygon || polygonCoords}
+                opacity={heatmapOverlay.opacity ?? 0.6}
+                visible={heatmapOverlay.visible ?? true}
+              />
+            )}
+          </MapContainer>
         </div>
       </div>
     </div>

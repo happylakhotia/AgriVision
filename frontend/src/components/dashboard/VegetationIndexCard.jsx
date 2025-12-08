@@ -1,66 +1,158 @@
-import React, { useState, useEffect } from "react";
-import { Sprout, ChevronDown, RefreshCw, Loader2, Info } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Sprout, ChevronDown, RefreshCw, Loader2, Eye, EyeOff } from "lucide-react";
+import { MapContainer, Polygon, TileLayer, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet-draw/dist/leaflet.draw.css";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-const VegetationIndexCard = ({ field }) => {
+const DEFAULT_CENTER = { lat: 20.5937, lng: 78.9629 }; // India centroid fallback
+
+// Imperative overlay so we can clip to an arbitrary polygon
+const HeatmapImageOverlay = ({ imageUrl, bounds, polygon, opacity, visible }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !imageUrl || !bounds || !polygon?.length) return undefined;
+
+    const leafletBounds = L.latLngBounds(
+      [bounds.minLat, bounds.minLng], // south-west
+      [bounds.maxLat, bounds.maxLng]  // north-east
+    );
+
+    // Remove overlay entirely when toggled off
+    if (!visible) {
+      return undefined;
+    }
+
+    const overlay = L.imageOverlay(imageUrl, leafletBounds, {
+      opacity,
+      interactive: false,
+      className: "heatmap-leaflet-overlay",
+    }).addTo(map);
+
+    const updateClip = () => {
+      const img = overlay.getElement();
+      if (!img) return;
+
+      const topLeft = map.latLngToLayerPoint(leafletBounds.getNorthWest());
+      const clipPoints = polygon
+        .map((pt) => {
+          const latLng = Array.isArray(pt) ? L.latLng(pt[0], pt[1]) : L.latLng(pt.lat, pt.lng);
+          const projected = map.latLngToLayerPoint(latLng);
+          return `${projected.x - topLeft.x}px ${projected.y - topLeft.y}px`;
+        })
+        .join(", ");
+
+      const clipPath = `polygon(${clipPoints})`;
+      img.style.clipPath = clipPath;
+      img.style.webkitClipPath = clipPath;
+    };
+
+    map.on("zoom", updateClip);
+    map.on("move", updateClip);
+    map.on("viewreset", updateClip);
+    overlay.on("load", updateClip);
+    updateClip();
+
+    return () => {
+      map.off("zoom", updateClip);
+      map.off("move", updateClip);
+      map.off("viewreset", updateClip);
+      overlay.remove();
+    };
+  }, [map, imageUrl, bounds, polygon, opacity, visible]);
+
+  return null;
+};
+
+const FitPolygon = ({ polygon, bounds }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    if (polygon?.length) {
+      const polyBounds = L.latLngBounds(polygon);
+      map.fitBounds(polyBounds, { padding: [20, 20] });
+      return;
+    }
+    if (bounds) {
+      const b = L.latLngBounds(
+        [bounds.maxLat, bounds.minLng],
+        [bounds.minLat, bounds.maxLng]
+      );
+      map.fitBounds(b, { padding: [20, 20] });
+    }
+  }, [map, polygon, bounds]);
+  return null;
+};
+
+const VegetationIndexCard = ({ field, onHeatmapReady }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [ndviData, setNdviData] = useState(null);
   const [error, setError] = useState(null);
-  const [coordinates, setCoordinates] = useState(null);
-  const [dominantLabel, setDominantLabel] = useState(""); // State for dominant condition
-  
-  // Updated Options based on your Python Backend
+  const [dominantLabel, setDominantLabel] = useState("");
+
   const [indexType, setIndexType] = useState("NDVI");
+  const [heatmapUrl, setHeatmapUrl] = useState("");
+  const [heatmapOpacity, setHeatmapOpacity] = useState(0.6);
+  const [heatmapVisible, setHeatmapVisible] = useState(true);
 
-  // 1. Fetch Field Coordinates & Radius
-  useEffect(() => {
-    if (field && field.lat && field.lng) {
-      setCoordinates({ 
-        lat: field.lat, 
-        lng: field.lng,
-        radius: field.radius || 1.0 
-      });
-      return;
+  const polygonCoords = useMemo(() => {
+    if (field?.coordinates?.length) {
+      return field.coordinates.map((c) => [c.lat, c.lng]);
     }
+    return [];
+  }, [field]);
 
-    const fetchFieldData = async () => {
-      if (!currentUser) return;
-      try {
-        const fieldRef = doc(db, "fields", currentUser.uid);
-        const fieldSnap = await getDoc(fieldRef);
-        
-        if (fieldSnap.exists()) {
-          const data = fieldSnap.data();
-          if (data.lat && data.lng) {
-            setCoordinates({ 
-                lat: data.lat, 
-                lng: data.lng,
-                radius: data.radius || 1.0 
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching field:", err);
-      }
+  const centroid = useMemo(() => {
+    if (!polygonCoords.length) return null;
+    const sum = polygonCoords.reduce(
+      (acc, [lat, lng]) => {
+        acc.lat += lat;
+        acc.lng += lng;
+        return acc;
+      },
+      { lat: 0, lng: 0 }
+    );
+    return { lat: sum.lat / polygonCoords.length, lng: sum.lng / polygonCoords.length };
+  }, [polygonCoords]);
+
+  const polygonBounds = useMemo(() => {
+    if (!polygonCoords.length) return null;
+    const lats = polygonCoords.map((p) => p[0]);
+    const lngs = polygonCoords.map((p) => p[1]);
+    return {
+      minLat: Math.min(...lats),
+      maxLat: Math.max(...lats),
+      minLng: Math.min(...lngs),
+      maxLng: Math.max(...lngs),
     };
-    fetchFieldData();
-  }, [currentUser, field]);
+  }, [polygonCoords]);
 
-  // 2. Trigger API
   useEffect(() => {
-    if (coordinates) {
-      fetchAnalysis(coordinates.lat, coordinates.lng, indexType, coordinates.radius);
-    }
-  }, [coordinates, indexType]);
+    // Whenever polygon changes, clear any previous heatmap so it doesn't linger
+    setHeatmapUrl("");
+    setNdviData(null);
+    onHeatmapReady?.(null);
+  }, [polygonCoords]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!field?.lat || !field?.lng) return;
+    fetchAnalysis(field.lat, field.lng, indexType, field.radius || 1.0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indexType, currentUser, field?.lat, field?.lng, field?.radius]);
 
   const fetchAnalysis = async (lat, lng, type, rad) => {
     setLoading(true);
     setError(null);
     setNdviData(null);
     setDominantLabel("");
+    setHeatmapUrl("");
+    onHeatmapReady?.(null);
     
     try {
       console.log(`🚀 Requesting ${type} Analysis...`);
@@ -69,10 +161,12 @@ const VegetationIndexCard = ({ field }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-            lat, 
-            lng, 
-            indexType: type, // Sends "NDVI", "NDRE", etc.
-            radius: rad 
+            lat,
+            lng,
+            indexType: type,
+            radius: rad,
+            polygon: polygonCoords,
+            bounds: polygonBounds
         }),
       });
 
@@ -80,16 +174,31 @@ const VegetationIndexCard = ({ field }) => {
 
       if (data.success) {
         setNdviData(data);
+        const resolvedBounds = data.bounds || polygonBounds;
+        if (data.heatmap_base64) {
+          setHeatmapUrl(`data:image/png;base64,${data.heatmap_base64}`);
+        }
         
-        // 🔥 LOGIC: Calculate Dominant Condition from Statistics
         if (data.statistics) {
-          // Find key with highest value
           const maxKey = Object.keys(data.statistics).reduce((a, b) => 
             data.statistics[a] > data.statistics[b] ? a : b
           );
           setDominantLabel(maxKey);
         }
-
+        // Store bounds even if backend didn't return them
+        if (resolvedBounds) {
+          setNdviData((prev) => ({ ...prev, bounds: resolvedBounds }));
+        }
+        if (data.heatmap_base64 && resolvedBounds) {
+          onHeatmapReady?.({
+            heatmapUrl: `data:image/png;base64,${data.heatmap_base64}`,
+            bounds: resolvedBounds,
+            polygon: polygonCoords,
+            opacity: heatmapOpacity,
+            visible: heatmapVisible,
+            indexType: type,
+          });
+        }
       } else {
         setError(data.error || `Failed to process ${type} data.`);
       }
@@ -102,10 +211,26 @@ const VegetationIndexCard = ({ field }) => {
   };
 
   const handleRefresh = () => {
-    if (coordinates) {
-      fetchAnalysis(coordinates.lat, coordinates.lng, indexType, coordinates.radius);
+    if (field?.lat && field?.lng) {
+      fetchAnalysis(field.lat, field.lng, indexType, field.radius || 1.0);
     }
   };
+
+  const mapCenter = centroid || (field?.lat && field?.lng ? { lat: field.lat, lng: field.lng } : DEFAULT_CENTER);
+  const overlayBounds = ndviData?.bounds || polygonBounds;
+
+  // Keep parent overlay in sync when opacity/visibility change and we already have data
+  useEffect(() => {
+    if (!heatmapUrl || !overlayBounds || !polygonCoords.length) return;
+    onHeatmapReady?.({
+      heatmapUrl,
+      bounds: overlayBounds,
+      polygon: polygonCoords,
+      opacity: heatmapOpacity,
+      visible: heatmapVisible,
+      indexType,
+    });
+  }, [heatmapOpacity, heatmapVisible, heatmapUrl, overlayBounds, polygonCoords, indexType]);
 
   return (
     <div className="rounded-2xl border border-gray-200 shadow-md bg-white/70 backdrop-blur-xl flex flex-col h-full">
@@ -118,7 +243,7 @@ const VegetationIndexCard = ({ field }) => {
         </h3>
 
         <div className="flex gap-2">
-          {coordinates && (
+          {field?.lat && field?.lng && (
             <button 
               onClick={handleRefresh}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -127,8 +252,7 @@ const VegetationIndexCard = ({ field }) => {
             </button>
           )}
           
-          <div className="relative">
-            {/* 🔥 UPDATED DROPDOWN OPTIONS */}
+          <div className="relative flex items-center gap-2">
             <select
               value={indexType}
               onChange={(e) => setIndexType(e.target.value)}
@@ -142,13 +266,20 @@ const VegetationIndexCard = ({ field }) => {
               <option value="EVI">EVI (Dense)</option>
             </select>
             <ChevronDown className="h-3 w-3 absolute right-2 top-2 text-gray-600 pointer-events-none" />
+            <button
+              onClick={() => setHeatmapVisible((prev) => !prev)}
+              className="p-2 rounded-md border border-gray-200 hover:bg-gray-100"
+              title={heatmapVisible ? "Hide heatmap" : "Show heatmap"}
+            >
+              {heatmapVisible ? <Eye className="h-4 w-4 text-gray-700" /> : <EyeOff className="h-4 w-4 text-gray-700" />}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Visualization Area */}
       <div className="p-4 flex-1 flex flex-col">
-        <div className="flex-1 rounded-xl bg-gray-900 border border-gray-200 shadow-inner flex flex-col items-center justify-center overflow-hidden relative min-h-[450px]">
+        <div className="flex-1 rounded-xl bg-gray-900 border border-gray-200 shadow-inner flex flex-col overflow-hidden relative min-h-[450px]">
           
           {loading ? (
             <div className="flex flex-col items-center gap-3">
@@ -160,16 +291,64 @@ const VegetationIndexCard = ({ field }) => {
               <p className="text-red-400 text-sm mb-2">{error}</p>
               <button onClick={handleRefresh} className="text-xs bg-red-900/50 text-red-200 px-3 py-1 rounded border border-red-700">Retry</button>
             </div>
-          ) : ndviData && ndviData.heatmap_base64 ? (
+          ) : ndviData && heatmapUrl ? (
             <>
-              {/* Heatmap Image */}
-              <img 
-                src={`data:image/png;base64,${ndviData.heatmap_base64}`} 
-                alt={`${indexType} Heatmap`} 
-                className="w-full h-full object-cover"
-              />
+              <div className="relative h-full w-full">
+                <MapContainer
+                  center={mapCenter}
+                  zoom={17}
+                  className="h-full w-full"
+                  style={{ minHeight: 450 }}
+                  scrollWheelZoom
+                >
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+                  />
+                  <FitPolygon polygon={polygonCoords} bounds={overlayBounds} />
+                  {polygonCoords.length > 0 && (
+                    <Polygon
+                      positions={polygonCoords}
+                      pathOptions={{
+                        color: "#10b981",
+                        weight: 2,
+                        fillColor: "#10b981",
+                        fillOpacity: 0.12,
+                      }}
+                    />
+                  )}
 
-              {/* 🔥 NEW: Statistics Overlay (Legend) */}
+                  {overlayBounds && heatmapUrl && (
+                    <HeatmapImageOverlay
+                      imageUrl={heatmapUrl}
+                      bounds={overlayBounds}
+                      polygon={polygonCoords}
+                      opacity={heatmapOpacity}
+                      visible={heatmapVisible}
+                    />
+                  )}
+                </MapContainer>
+
+                <div className="absolute left-3 bottom-3 z-[500] bg-black/70 text-white rounded-lg border border-white/10 p-3 space-y-2 shadow-lg">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs uppercase tracking-wide text-gray-200">Opacity</span>
+                    <span className="text-xs font-semibold text-green-300">{Math.round(heatmapOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={heatmapOpacity}
+                    onChange={(e) => setHeatmapOpacity(parseFloat(e.target.value))}
+                    className="w-40 accent-green-400"
+                  />
+                  {!heatmapVisible && (
+                    <p className="text-[11px] text-amber-200">Heatmap hidden</p>
+                  )}
+                </div>
+              </div>
+
               <div className="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-md p-4 text-white border-t border-white/10">
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-bold text-sm text-green-400">{indexType} Analysis</span>

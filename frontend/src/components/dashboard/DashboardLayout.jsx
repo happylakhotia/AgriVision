@@ -15,6 +15,7 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
   const [selectedField, setSelectedField] = useState(null);
   const [loading, setLoading] = useState(true);
   const [alertsData, setAlertsData] = useState({ total: 0, highPriority: 0 });
+  const [heatmapOverlay, setHeatmapOverlay] = useState(null);
 
   // Fetch alerts for selected field
   useEffect(() => {
@@ -171,6 +172,7 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
     if (!field) return;
     
     setSelectedField(field);
+    setHeatmapOverlay(null);
     
     // Save to Firebase
     if (currentUser) {
@@ -288,13 +290,13 @@ const DashboardLayout = ({ currentUser, onLogout }) => {
             {/* BIGGER FIELD MAP */}
             <div className="lg:col-span-2">
               <div className="h-[600px]">
-                  <FieldMap field={selectedField} />
+                  <FieldMap field={selectedField} heatmapOverlay={heatmapOverlay} />
               </div>
             </div>
 
               {/* BIGGER VEGETATION INDEX - Matched to Field Map height */}
               <div className="h-[600px]">
-                <VegetationIndexCard field={selectedField} />
+                <VegetationIndexCard field={selectedField} onHeatmapReady={setHeatmapOverlay} />
             </div>
 
           </div>
