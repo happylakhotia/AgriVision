@@ -21,7 +21,7 @@ ${message}
 Based on the above instructions, give a clear, step-by-step answer in simple English:`;
 
     // Use the API key directly from environment or hardcoded
-    const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyBG_1l9kIrjWdvq-8GfKkuYgpu8owl8zGI';
+    const apiKey = process.env.GEMINI_API_KEY
 
     console.log('Attempting to call Gemini model gemini-2.5-flash with generateContent...');
 
