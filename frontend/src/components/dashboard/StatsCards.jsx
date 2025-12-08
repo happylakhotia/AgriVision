@@ -1,12 +1,12 @@
 import React from "react";
 import { Leaf, Sprout, Trees, AlertTriangle } from "lucide-react";
 
-const StatsCards = () => {
+const StatsCards = ({ field }) => {
   const stats = [
     {
-      title: "Active Fields",
-      value: "2",
-      subtitle: "5% from last week",
+      title: "Area",
+      value: field.area,
+      subtitle: "Size of selected field",
       icon: Trees,
       bg: "bg-green-50",
       border: "border-green-200",
@@ -15,8 +15,8 @@ const StatsCards = () => {
     },
     {
       title: "Soil Conditions",
-      value: "85%",
-      subtitle: "Optimal range",
+      value: `${field.soil}%`,
+      subtitle: "Soil health score",
       icon: Leaf,
       bg: "bg-lime-50",
       border: "border-lime-200",
@@ -24,9 +24,9 @@ const StatsCards = () => {
       text: "text-lime-700",
     },
     {
-      title: "Vegetation Indices",
-      value: "0.72",
-      subtitle: "Monitoring required",
+      title: "NDVI",
+      value: field.ndvi,
+      subtitle: "Vegetation health",
       icon: Sprout,
       bg: "bg-yellow-50",
       border: "border-yellow-200",

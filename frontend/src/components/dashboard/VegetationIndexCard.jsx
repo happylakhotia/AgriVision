@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-const VegetationIndexCard = () => {
+const VegetationIndexCard = ({ field }) => {
   const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [ndviData, setNdviData] = useState(null);
@@ -14,8 +14,21 @@ const VegetationIndexCard = () => {
   // Default Index Type
   const [indexType, setIndexType] = useState("NDVI");
 
-  // 1. Fetch Field Coordinates & Radius
+  // 1. Fetch Field Coordinates & Radius (prioritize field prop, fallback to Firebase)
   useEffect(() => {
+    // First check if field prop has coordinates
+    if (field && field.lat && field.lng) {
+      console.log("🎯 Using selected field coordinates:", field);
+      // 🔥 NEW: Include radius from field (default 1.0)
+      setCoordinates({ 
+        lat: field.lat, 
+        lng: field.lng,
+        radius: field.radius || 1.0 
+      });
+      return;
+    }
+
+    // Otherwise fetch from Firebase
     const fetchFieldData = async () => {
       if (!currentUser) return;
       try {
@@ -38,7 +51,7 @@ const VegetationIndexCard = () => {
       }
     };
     fetchFieldData();
-  }, [currentUser]);
+  }, [currentUser, field]);
 
   // 2. Trigger API when coords or indexType changes
   useEffect(() => {
@@ -97,7 +110,7 @@ const VegetationIndexCard = () => {
       <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white/50 backdrop-blur-md rounded-t-2xl">
         <h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
           <Sprout className="h-5 w-5 text-green-600" />
-          Vegetation Index
+          Vegetation Index for {field.name}
         </h3>
 
         <div className="flex gap-2">

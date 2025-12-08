@@ -6,7 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 
 const DEFAULT_CENTER = { lat: 17.3266, lng: 78.1695 };
 
-const FieldMap = () => {
+const FieldMap = ({ field }) => {
   const { currentUser } = useAuth();
   const mapRef = useRef(null);
   const [savedCoordinates, setSavedCoordinates] = useState(null);
@@ -15,6 +15,14 @@ const FieldMap = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Prioritize field prop coordinates
+    if (field && field.coordinates && field.coordinates.length > 0) {
+      console.log("🎯 Using selected field coordinates:", field);
+      setSavedCoordinates(field.coordinates);
+      setLoading(false);
+      return;
+    }
+
     if (!currentUser) {
       setLoading(false);
       setSavedCoordinates(null);
@@ -26,7 +34,7 @@ const FieldMap = () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch field data
+        // Fetch field data from Firebase (fallback)
         const fieldRef = doc(db, "fields", currentUser.uid);
         const fieldSnap = await getDoc(fieldRef);
         if (fieldSnap.exists()) {
@@ -59,7 +67,7 @@ const FieldMap = () => {
     };
 
     fetchData();
-  }, [currentUser]);
+  }, [currentUser, field]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -138,7 +146,7 @@ const FieldMap = () => {
     <div className="rounded-2xl border border-gray-200 shadow-md bg-white/70 backdrop-blur-xl">
       <div className="p-4 border-b border-gray-200 flex items-center gap-2 bg-white/50 backdrop-blur-md rounded-t-2xl">
         <MapPin className="h-5 w-5 text-green-600" />
-        <h2 className="text-lg font-semibold text-gray-700">Field Map</h2>
+        <h2 className="text-lg font-semibold text-gray-700">Map of {field.name}</h2>
       </div>
 
       <div className="p-4 space-y-3">

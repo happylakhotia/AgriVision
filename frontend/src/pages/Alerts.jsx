@@ -16,7 +16,7 @@ import Sidebar from "../components/dashboard/Sidebar";
 import { doSignOut } from "../firebase/auth";
 
 import { db } from "../firebase/firebase";
-import { doc, getDoc, collection, query, where, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, onSnapshot, getDocs } from "firebase/firestore";
 
 /* -------------------------------------------------------
    Utility: cn()
@@ -148,6 +148,11 @@ export default function Alerts() {
   const [error, setError] = useState(null);
   const [userType, setUserType] = useState(null);
   const [chatAlerts, setChatAlerts] = useState([]);
+  
+  // Field selection for farmers
+  const [fields, setFields] = useState([]);
+  const [selectedField, setSelectedField] = useState(null);
+  const [fieldsLoading, setFieldsLoading] = useState(true);
 
   const handleLogout = async () => {
     try {
@@ -182,6 +187,50 @@ export default function Alerts() {
 
     fetchUserType();
   }, [currentUser]);
+
+  // Fetch fields for farmers
+  useEffect(() => {
+    const fetchFields = async () => {
+      if (!currentUser || userType !== "farmer") {
+        setFieldsLoading(false);
+        return;
+      }
+
+      try {
+        const fieldsRef = collection(db, "users", currentUser.uid, "fields");
+        const fieldsSnapshot = await getDocs(fieldsRef);
+        
+        const fetchedFields = [];
+        fieldsSnapshot.forEach((doc) => {
+          fetchedFields.push({
+            id: doc.id,
+            name: doc.data().fieldName || "Unnamed Field",
+            lat: doc.data().lat,
+            lng: doc.data().lng,
+            createdAt: doc.data().createdAt || new Date().toISOString(),
+          });
+        });
+
+        // Sort by creation date
+        fetchedFields.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+        setFields(fetchedFields);
+        
+        // Auto-select first field if available
+        if (fetchedFields.length > 0 && !selectedField) {
+          setSelectedField(fetchedFields[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching fields:", err);
+      } finally {
+        setFieldsLoading(false);
+      }
+    };
+
+    if (userType) {
+      fetchFields();
+    }
+  }, [currentUser, userType]);
 
   /* ----------------------------------------------------
      2. LSTM API + convert into alert UI format (FULL)
@@ -317,36 +366,24 @@ export default function Alerts() {
   }, []);
 
   /* ----------------------------------------------------
-     1. Load Coordinates from Firebase
+     1. Load Coordinates from Selected Field
   ---------------------------------------------------- */
   const loadFieldData = useCallback(async () => {
-    if (!currentUser) {
-      console.log("⚠️ No current user");
+    if (!selectedField) {
+      console.log("⚠️ No field selected");
       return;
     }
 
-    console.log("🔍 Loading field data for user:", currentUser.uid);
+    console.log("🔍 Loading field data:", selectedField.name);
     setLoading(true);
     setError(null);
 
     try {
-      const ref = doc(db, "fields", currentUser.uid);
-      const snap = await getDoc(ref);
-
-      if (snap.exists()) {
-        const data = snap.data();
-        console.log("📍 Field data found:", data);
-
-        if (data.lat && data.lng) {
-          // auto-run prediction
-          await runLSTM(data.lat, data.lng);
-        } else {
-          setError("Field coordinates not found. Please add field details first.");
-          setLoading(false);
-        }
+      if (selectedField.lat && selectedField.lng) {
+        // auto-run prediction for selected field
+        await runLSTM(selectedField.lat, selectedField.lng);
       } else {
-        console.log("⚠️ No field data found");
-        setError("No field data found. Please add your field details first.");
+        setError("Field coordinates not found. Please draw this field on the map.");
         setLoading(false);
       }
     } catch (err) {
@@ -354,13 +391,13 @@ export default function Alerts() {
       setError("Failed to load field data");
       setLoading(false);
     }
-  }, [currentUser, runLSTM]);
+  }, [selectedField, runLSTM]);
 
   useEffect(() => {
-    if (userType === "farmer") {
+    if (userType === "farmer" && selectedField && !fieldsLoading) {
       loadFieldData();
     }
-  }, [loadFieldData, userType]);
+  }, [selectedField, userType, fieldsLoading]);
 
   useEffect(() => {
     if (!currentUser || userType !== "vendor") {
@@ -461,7 +498,7 @@ export default function Alerts() {
         <div className="mx-auto max-w-6xl space-y-6 py-6">
           
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
                 <Bell className="h-6 w-6 text-primary-foreground" />
@@ -478,21 +515,66 @@ export default function Alerts() {
               </div>
             </div>
             
-            {/* Refresh Button */}
+            {/* Field Selector & Refresh Button for Farmers */}
             {!isVendor && (
-              <button
-                onClick={loadFieldData}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Field Selector */}
+                {fields.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Field:
+                    </label>
+                    <select
+                      value={selectedField?.id || ""}
+                      onChange={(e) => {
+                        const field = fields.find(f => f.id === e.target.value);
+                        setSelectedField(field);
+                      }}
+                      className="px-4 py-2 border border-green-200 bg-white rounded-lg shadow-sm focus:ring-2 focus:ring-green-400 text-sm"
+                    >
+                      {fields.map((field) => (
+                        <option key={field.id} value={field.id}>
+                          {field.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {/* Refresh Button */}
+                <button
+                  onClick={loadFieldData}
+                  disabled={loading || !selectedField}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Loading...' : 'Refresh'}
+                </button>
+              </div>
             )}
           </div>
 
+          {/* No Fields Message */}
+          {!isVendor && fields.length === 0 && !fieldsLoading && (
+            <Card className="p-8 text-center border-2 border-yellow-200 bg-yellow-50">
+              <div className="flex flex-col items-center gap-3">
+                <AlertCircle className="h-12 w-12 text-yellow-600" />
+                <h3 className="text-lg font-semibold text-yellow-900">No Fields Found</h3>
+                <p className="text-yellow-700 max-w-md">
+                  Please add your fields in the Farm Selection page to get alerts for your farm.
+                </p>
+                <button
+                  onClick={() => navigate("/farm-selection")}
+                  className="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Go to Farm Selection
+                </button>
+              </div>
+            </Card>
+          )}
+
           {/* Tabs */}
-          {!isVendor && (
+          {!isVendor && fields.length > 0 && (
           <Tabs value={selectedType} onValueChange={setSelectedType}>
             <TabsList value={selectedType} onValueChange={setSelectedType}>
               <TabsTrigger value="daily"><Clock11 className="h-4 w-4" /> Daily</TabsTrigger>

@@ -2,25 +2,28 @@ import React, { useEffect, useRef, useState } from "react";
 import FieldDetailsDrawer from "./FieldDetailsDrawer";
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 
 const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
   const mapRef = useRef(null);
   const searchRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const userLocationMarkerRef = useRef(null);
+  const drawnPolygonsRef = useRef([]);
   const { currentUser } = useAuth();
   const [fieldCoordinates, setFieldCoordinates] = useState(null);
   const [centroid, setCentroid] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [locationFetched, setLocationFetched] = useState(false);
+  const [fieldCount, setFieldCount] = useState(1);
 
-  // Fetch user location
+  // Fetch user location and existing fields count
   useEffect(() => {
     if (!currentUser) return;
 
-    const fetchUserLocation = async () => {
+    const fetchUserData = async () => {
       try {
+        // Fetch user location
         const userRef = doc(db, "users", currentUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
@@ -32,14 +35,24 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
             });
           }
         }
+
+        // Fetch existing fields to set proper field count
+        const fieldsRef = collection(db, "users", currentUser.uid, "fields");
+        const fieldsSnapshot = await getDocs(fieldsRef);
+        const existingFieldsCount = fieldsSnapshot.size;
+        
+        // Set field count to next number
+        setFieldCount(existingFieldsCount + 1);
+        console.log(`📊 Found ${existingFieldsCount} existing fields. Next field will be #${existingFieldsCount + 1}`);
+
         setLocationFetched(true);
       } catch (error) {
-        console.error("Error fetching user location:", error);
+        console.error("Error fetching user data:", error);
         setLocationFetched(true);
       }
     };
 
-    fetchUserLocation();
+    fetchUserData();
   }, [currentUser]);
 
   // -----------------------------------------
@@ -128,7 +141,7 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
             polyline.setMap(null);
 
             // Make polygon
-            new window.google.maps.Polygon({
+            const polygon = new window.google.maps.Polygon({
               paths: coords,
               strokeColor: "#FFFFFF",
               strokeWeight: 2,
@@ -140,21 +153,28 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
             // Centroid
             const computedCentroid = computeCentroid(coords);
 
-            // Label "Field 1"
-            new window.google.maps.Marker({
+            // Dynamic field label
+            const fieldLabel = `Field ${fieldCount}`;
+            const marker = new window.google.maps.Marker({
               position: computedCentroid,
               map,
               icon: { path: window.google.maps.SymbolPath.CIRCLE, scale: 0 },
               label: {
-                text: "Field 1",
+                text: fieldLabel,
                 color: "white",
                 fontSize: "16px",
               },
             });
 
+            // Store polygon and marker for later reference
+            drawnPolygonsRef.current.push({ polygon, marker, coords, centroid: computedCentroid });
+
             // Store coordinates in state for the drawer
             setFieldCoordinates(coords);
             setCentroid(computedCentroid);
+            
+            // Open drawer to add details
+            setShowDrawer(true);
           }
         }
       );
@@ -244,31 +264,32 @@ const NewFieldMap = ({ showDrawer, setShowDrawer }) => {
         </div>
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-between mt-6">
-        <button
-          className="w-[48%] py-3 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          onClick={() => setShowDrawer(true)}
-          disabled={!centroid}
-        >
-          {centroid ? "Add Field Details" : "Draw Field First"}
-        </button>
-
-        <button
-          className="w-[48%] py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          onClick={() => setShowDrawer(true)}
-          disabled={!centroid}
-        >
-          {centroid ? "Save Field" : "No Field Selected"}
-        </button>
+      {/* Info Message */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <strong>Instructions:</strong> Draw your field boundaries on the map using the polyline tool. 
+          A drawer will open automatically to add field details. You can add multiple fields by drawing them one by one.
+        </p>
       </div>
 
       {/* Drawer */}
       <FieldDetailsDrawer 
         open={showDrawer} 
-        onClose={() => setShowDrawer(false)}
+        onClose={() => {
+          setShowDrawer(false);
+          // Reset for next field
+          setFieldCoordinates(null);
+          setCentroid(null);
+        }}
         coordinates={fieldCoordinates}
         centroid={centroid}
+        suggestedFieldName={`Field ${fieldCount}`}
+        onSaveSuccess={() => {
+          setFieldCount(prev => prev + 1);
+          setShowDrawer(false);
+          setFieldCoordinates(null);
+          setCentroid(null);
+        }}
       />
     </>
   );

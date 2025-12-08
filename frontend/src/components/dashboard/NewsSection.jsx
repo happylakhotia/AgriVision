@@ -8,7 +8,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 const OPENWEATHER_API_KEY = "6af24b4f823c9044d1cbad4c94379de5";
 const OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5";
 
-const NewsSection = () => {
+const NewsSection = ({ selectedField }) => {
   const { currentUser } = useAuth();
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,18 @@ const NewsSection = () => {
   const [locationAttempted, setLocationAttempted] = useState(false);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+
+  // Update field location when selectedField changes
+  useEffect(() => {
+    if (selectedField && selectedField.lat && selectedField.lng) {
+      console.log("🎯 Using selected field coordinates:", selectedField);
+      setFieldLocation({
+        latitude: selectedField.lat,
+        longitude: selectedField.lng
+      });
+      setUsingFieldLocation(true);
+    }
+  }, [selectedField]);
 
   useEffect(() => {
     if (currentUser) {
