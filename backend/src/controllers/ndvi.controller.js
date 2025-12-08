@@ -4,9 +4,8 @@ import FormData from 'form-data';
 const CLIENT_ID = "2869324a-556d-47ef-8a86-51d6afa72823";
 const CLIENT_SECRET = "Dwwx2LD2ZAqBktucTUIF5QmeksgItyw3";
 
-// Helper Functions (Same as before)
+// Helper: Auth Token Lena
 async function getSentinelToken() {
-  // ... (Same logic as before) ...
   const params = new URLSearchParams();
   params.append('grant_type', 'client_credentials');
   params.append('client_id', CLIENT_ID);
@@ -17,43 +16,47 @@ async function getSentinelToken() {
   return response.data.access_token;
 }
 
-function getBBox(lat, lng) {
-  // ... (Same logic as before) ...
-  const distance_km = 1.0;
+// 🔥 NEW: getBBox now accepts dynamic radius (in km)
+function getBBox(lat, lng, radiusKm) {
+  const distance_km = radiusKm; // Using dynamic radius
   const lat_degree_km = 111.0;
   const lng_degree_km = 111.0 * Math.cos(lat * (Math.PI / 180));
+  
   const r_lat = (distance_km / 2) / lat_degree_km;
   const r_lng = (distance_km / 2) / lng_degree_km;
-  return [lng - r_lng, lat - r_lat, lng + r_lng, lat + r_lat];
+  
+  return [
+    lng - r_lng, // minX
+    lat - r_lat, // minY
+    lng + r_lng, // maxX
+    lat + r_lat  // maxY
+  ];
 }
 
 export const analyzeNDVI = async (req, res) => {
   try {
-    // 🔥 Yahan 'indexType' receive kar rahe hain (Default NDVI)
-    const { lat, lng, indexType = "NDVI" } = req.body;
+    // 🔥 NEW: Receive 'radius' from frontend (default 1.0 if not provided)
+    const { lat, lng, indexType = "NDVI", radius } = req.body;
     
     if (!lat || !lng) {
       return res.status(400).json({ error: "Latitude and Longitude required" });
     }
 
-    console.log(`🛰️ Processing ${indexType} for: ${lat}, ${lng}`);
+    // Determine Scan Radius
+    const searchRadius = radius ? parseFloat(radius) : 1.0;
 
-    // 🔥 LOGIC SWITCH: Future mein yahan alag APIs daal dena
+    console.log(`🛰️ Processing ${indexType} for: ${lat}, ${lng} with Radius: ${searchRadius}km`);
+
+    // 🔥 LOGIC SWITCH
     let targetApiUrl = "";
-    
     switch (indexType) {
         case "NDVI":
             targetApiUrl = "https://itvi-1234-ndvi-msi.hf.space/predict";
             break;
         case "EVI":
-            // TODO: Future mein yahan EVI ka Hugging Face URL daalna
-            console.log("⚠️ Using Default API for EVI (Change this later)");
-            targetApiUrl = "https://itvi-1234-ndvi-msi.hf.space/predict"; 
-            break;
         case "SAVI":
-            // TODO: Future mein yahan SAVI ka URL daalna
-            console.log("⚠️ Using Default API for SAVI (Change this later)");
-            targetApiUrl = "https://itvi-1234-ndvi-msi.hf.space/predict";
+            console.log(`⚠️ Using Default API for ${indexType} (Change this later)`);
+            targetApiUrl = "https://itvi-1234-ndvi-msi.hf.space/predict"; 
             break;
         default:
             targetApiUrl = "https://itvi-1234-ndvi-msi.hf.space/predict";
@@ -63,7 +66,6 @@ export const analyzeNDVI = async (req, res) => {
     const token = await getSentinelToken();
 
     // 2. Evalscript
-    // (Agar future mein EVI/SAVI ke liye Sentinel se alag bands chahiye, toh yahan change hoga)
     const evalscript = `
       //VERSION=3
       function setup() {
@@ -81,7 +83,9 @@ export const analyzeNDVI = async (req, res) => {
     startDate.setDate(endDate.getDate() - 60);
     
     // 4. Sentinel Process
-    const bbox = getBBox(lat, lng);
+    // 🔥 Pass dynamic radius to getBBox
+    const bbox = getBBox(lat, lng, searchRadius);
+
     const sentinelResponse = await axios.post('https://services.sentinel-hub.com/api/v1/process', 
       {
         input: {
@@ -97,8 +101,8 @@ export const analyzeNDVI = async (req, res) => {
       }
     );
 
-    // 5. Send to AI (Dynamic URL)
-    console.log(`🚀 Sending image to ${indexType} AI Model (${targetApiUrl})...`);
+    // 5. Send to AI
+    console.log(`🚀 Sending image to ${indexType} AI Model...`);
     
     const form = new FormData();
     form.append('file', Buffer.from(sentinelResponse.data), { filename: 'image.tiff' });
@@ -117,14 +121,23 @@ export const analyzeNDVI = async (req, res) => {
     });
 
   } catch (error) {
-    // ... (Same error handling code as before) ...
     let errorMessage = "Processing failed";
     if (error.response) {
-       errorMessage = JSON.stringify(error.response.data);
-       console.error("❌ API Error:", errorMessage);
+        if (error.response.data instanceof Buffer) {
+            try {
+                const errorString = Buffer.from(error.response.data).toString('utf8');
+                console.error("❌ SENTINEL/AI API ERROR:", errorString);
+                errorMessage = `API Error: ${errorString}`;
+            } catch (e) {
+                console.error("❌ Binary Error Data:", error.response.data);
+            }
+        } else {
+            console.error("❌ API Error:", error.response.data);
+            errorMessage = JSON.stringify(error.response.data);
+        }
     } else {
-       console.error("❌ Network Error:", error.message);
-       errorMessage = error.message;
+        console.error("❌ Network/Code Error:", error.message);
+        errorMessage = error.message;
     }
     res.status(500).json({ error: errorMessage });
   }
