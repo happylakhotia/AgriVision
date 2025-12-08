@@ -55,23 +55,29 @@ export const analyzeNDVI = async (req, res) => {
     // 2. UPDATED EVALSCRIPT (Critical Step!)
     // Hum ab 5 Bands fetch kar rahe hain: Blue(B02), Green(B03), Red(B04), RedEdge(B05), NIR(B08)
     // Yeh order Python backend ke 'process_tiff_for_model' function se match hona chahiye.
-    const evalscript = `
+  const evalscript = `
       //VERSION=3
       function setup() {
         return {
           input: [{ 
-            bands: ["B02", "B03", "B04", "B05", "B08"], 
+            bands: ["B02", "B03", "B04", "B05", "B08", "B11"], 
             units: "DN" 
           }],
           output: { 
-            bands: 5, 
+            bands: 6, 
             sampleType: "UINT16" 
           }
         };
       }
+
       function evaluatePixel(sample) { 
-        // Order: [0:Blue, 1:Green, 2:Red, 3:RedEdge, 4:NIR]
-        return [sample.B02, sample.B03, sample.B04, sample.B05, sample.B08]; 
+        // Index 0: Blue (B02)
+        // Index 1: Green (B03)
+        // Index 2: Red (B04)
+        // Index 3: Red Edge (B05)
+        // Index 4: NIR (B08)
+        // Index 5: SWIR (B11) - NEW for SAVI
+        return [sample.B02, sample.B03, sample.B04, sample.B05, sample.B08, sample.B11]; 
       }
     `;
 
