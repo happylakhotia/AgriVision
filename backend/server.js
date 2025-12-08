@@ -7,7 +7,7 @@ import predictRoutes from './src/routes/predict.js';
 import pestRoutes from './src/routes/pest.js';
 import fieldRoutes from "./src/routes/field.js";
 import aiRoutes from './src/routes/ai.js';
-
+import { analyzeNDVI } from './src/controllers/ndvi.controller.js';
 // Load environment variables
 dotenv.config();
 
@@ -26,7 +26,7 @@ app.use('/api/disease', predictRoutes);
 app.use('/api/pest', pestRoutes);
 app.use("/field", fieldRoutes);
 app.use('/api/ai', aiRoutes);
-
+app.post('/api/analyze-ndvi', analyzeNDVI);
 // Health check
 app.get('/', (req, res) => {
   res.json({ message: 'AgriVision API is running' });
