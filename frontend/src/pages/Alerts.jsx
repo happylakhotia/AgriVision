@@ -334,10 +334,16 @@ export default function Alerts() {
   };
 
   const buildAlert = (key, title, forecast = {}, advisory = {}, stressIndex = 0) => {
+    // New LSTM fields include *_change and current_status; we use forecast values and attach deltas
     const ndvi = forecast.ndvi ?? forecast.NDVI ?? "-";
     const sm = forecast.sm ?? forecast.SM ?? "-";
-    const disease = forecast.disease_risk ?? 0;
-    const pest = forecast.pest_risk ?? 0;
+    const disease = forecast.disease_risk ?? forecast.diseaseRisk ?? 0;
+    const pest = forecast.pest_risk ?? forecast.pestRisk ?? 0;
+
+    const ndviChange = forecast.ndvi_change ?? forecast.ndviChange ?? null;
+    const smChange = forecast.sm_change ?? forecast.smChange ?? null;
+    const diseaseChange = forecast.disease_change ?? forecast.diseaseChange ?? null;
+    const pestChange = forecast.pest_change ?? forecast.pestChange ?? null;
 
     // priority: if any risk > 60 or stressIndex > 60 -> high
     const priority = (Number(disease) > 60 || Number(pest) > 60 || Number(stressIndex) > 60) ? "high" : "medium";
@@ -351,6 +357,10 @@ export default function Alerts() {
         diseaseRisk: Number(disease) || 0,
         pestRisk: Number(pest) || 0,
         stressIndex: Number(stressIndex) || 0,
+        ndviChange,
+        moistureChange: smChange,
+        diseaseChange,
+        pestChange,
       },
       priority,
       actions: getFullAdvisory(advisory),
@@ -445,7 +455,7 @@ export default function Alerts() {
         daily: [
           buildAlert(
             "day_1",
-            "Day 1 (Tomorrow)",
+            "Tomorrow",
             forecast.day_1 || {},
             advisory.day_1 || {},
             data.stress_index ?? 0
@@ -454,7 +464,7 @@ export default function Alerts() {
         weekly: [
           buildAlert(
             "day_7",
-            "Day 7 (Next Week)",
+            "Next Week",
             forecast.day_7 || {},
             advisory.day_7 || {},
             data.stress_index ?? 0
@@ -463,7 +473,7 @@ export default function Alerts() {
         biweekly: [
           buildAlert(
             "day_14",
-            "Day 14 (Two Weeks)",
+            "Next Two Weeks",
             forecast.day_14 || {},
             advisory.day_14 || {},
             data.stress_index ?? 0
@@ -963,6 +973,23 @@ export default function Alerts() {
                 return { color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200" };
               };
 
+              // Helper to style change badges consistently
+              const getChangeBadge = (change) => {
+                if (change === null || change === undefined || isNaN(change)) return null;
+                const num = parseFloat(change);
+                const sign = num > 0 ? "+" : "";
+                let colorClasses = "bg-gray-50 text-gray-600 border-gray-200";
+                if (num > 5) colorClasses = "bg-green-100 text-green-700 border-green-200";
+                else if (num > 0) colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                else if (num < -5) colorClasses = "bg-rose-100 text-rose-700 border-rose-200";
+                else if (num < 0) colorClasses = "bg-amber-50 text-amber-700 border-amber-200";
+
+                return {
+                  label: num === 0 ? "No change" : `${sign}${num.toFixed(1)}%`,
+                  colorClasses
+                };
+              };
+
               const ndviStatus = getMetricStatus(metrics.ndvi, 'ndvi');
               const moistureStatus = getMetricStatus(metrics.moisture, 'moisture');
               const diseaseStatus = getMetricStatus(metrics.diseaseRisk, 'diseaseRisk');
@@ -1057,7 +1084,19 @@ export default function Alerts() {
                             ? "-" 
                             : (isNaN(parseFloat(metrics.ndvi)) ? "-" : parseFloat(metrics.ndvi).toFixed(2))}
                         </p>
-                        <p className="text-xs text-gray-500 mb-2">Vegetation</p>
+                        {(() => {
+                          const badge = getChangeBadge(metrics.ndviChange);
+                          return badge ? (
+                            <div className={cn(
+                              "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                              badge.colorClasses
+                            )}>
+                              <span>{badge.label}</span>
+                              <span className="text-[10px] text-gray-500">vs prev</span>
+                            </div>
+                          ) : null;
+                        })()}
+                          <p className="text-xs text-gray-500 mb-2">Vegetation</p>
                         <div className="mt-auto pt-2 border-t border-gray-200">
                           {(() => {
                             const descKey = selectedField?.id ? `${selectedField.id}_${alert.id}` : alert.id;
@@ -1097,7 +1136,19 @@ export default function Alerts() {
                             ? "-" 
                             : (isNaN(parseFloat(metrics.moisture)) ? "-" : parseFloat(metrics.moisture).toFixed(2))}
                         </p>
-                        <p className="text-xs text-gray-500 mb-2">Soil</p>
+                        {(() => {
+                          const badge = getChangeBadge(metrics.moistureChange);
+                          return badge ? (
+                            <div className={cn(
+                              "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                              badge.colorClasses
+                            )}>
+                              <span>{badge.label}</span>
+                              <span className="text-[10px] text-gray-500">vs prev</span>
+                            </div>
+                          ) : null;
+                        })()}
+                          <p className="text-xs text-gray-500 mb-2">Soil</p>
                         <div className="mt-auto pt-2 border-t border-gray-200">
                           {(() => {
                             const descKey = selectedField?.id ? `${selectedField.id}_${alert.id}` : alert.id;
@@ -1134,6 +1185,18 @@ export default function Alerts() {
                         <p className={cn("text-2xl font-bold mb-1", diseaseStatus.color)}>
                           {metrics.diseaseRisk}%
                         </p>
+                        {(() => {
+                          const badge = getChangeBadge(metrics.diseaseChange);
+                          return badge ? (
+                            <div className={cn(
+                              "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                              badge.colorClasses
+                            )}>
+                              <span>{badge.label}</span>
+                              <span className="text-[10px] text-gray-500">vs prev</span>
+                            </div>
+                          ) : null;
+                        })()}
                         <p className="text-xs text-gray-500 mb-2">Risk</p>
                         <div className="mt-auto pt-2 border-t border-gray-200">
                           {(() => {
@@ -1171,6 +1234,18 @@ export default function Alerts() {
                         <p className={cn("text-2xl font-bold mb-1", pestStatus.color)}>
                           {metrics.pestRisk}%
                         </p>
+                        {(() => {
+                          const badge = getChangeBadge(metrics.pestChange);
+                          return badge ? (
+                            <div className={cn(
+                              "inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border",
+                              badge.colorClasses
+                            )}>
+                              <span>{badge.label}</span>
+                              <span className="text-[10px] text-gray-500">vs prev</span>
+                            </div>
+                          ) : null;
+                        })()}
                         <p className="text-xs text-gray-500 mb-2">Risk</p>
                         <div className="mt-auto pt-2 border-t border-gray-200">
                           {(() => {
