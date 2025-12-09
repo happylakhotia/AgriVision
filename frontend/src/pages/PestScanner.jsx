@@ -4,10 +4,12 @@ import Sidebar from "../components/dashboard/Sidebar";
 import { useAuth } from "../contexts/authcontext/Authcontext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { doSignOut } from "../firebase/auth";
+import { useTranslation } from "react-i18next";
 
 export default function PestScanner() {
   const { currentUser, userLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -37,7 +39,7 @@ export default function PestScanner() {
   };
 
   const checkPests = async () => {
-    if (!file) return alert("Please select an image!");
+    if (!file) return alert(t("pest_select_image"));
 
     setLoading(true);
     setResult(null);
@@ -55,7 +57,7 @@ export default function PestScanner() {
       setResult(data);
     } catch (err) {
       console.error(err);
-      alert("Server error! Check CORS.");
+      alert(t("pest_server_error"));
     } finally {
       setLoading(false);
     }
@@ -71,10 +73,10 @@ export default function PestScanner() {
 
           {/* Header */}
           <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-            🦗 Pest Scanner
+            🦗 {t("pest_title")}
           </h2>
           <p className="text-gray-600 mb-6">
-            Upload a crop image to detect pests & find solutions instantly.
+            {t("pest_subtitle")}
           </p>
 
           {/* MAIN CONTENT CARD */}
@@ -89,7 +91,7 @@ export default function PestScanner() {
                 {preview ? (
                   <img src={preview} className="w-full h-full object-cover" />
                 ) : (
-                  <p className="text-gray-400">No image selected</p>
+                  <p className="text-gray-400">{t("pest_no_image")}</p>
                 )}
               </div>
 
@@ -99,7 +101,7 @@ export default function PestScanner() {
                 className="mt-5 cursor-pointer bg-orange-600 hover:bg-orange-700 
                            text-white px-6 py-3 rounded-lg font-medium"
               >
-                📸 Upload Pest Image
+                📸 {t("pest_upload")}
               </label>
 
               <input
@@ -124,12 +126,12 @@ export default function PestScanner() {
                 className={`w-full py-4 rounded-lg text-white font-semibold text-lg transition 
                   ${loading ? "bg-gray-400" : "bg-orange-600 hover:bg-orange-700"}`}
               >
-                {loading ? "Scanning..." : "Scan for Pests"}
+                {loading ? t("pest_scanning") : t("pest_scan_button")}
               </button>
 
               {loading && (
                 <p className="text-orange-700 font-medium mt-3">
-                  🐜 Detecting pests... Please wait.
+                  🐜 {t("pest_detecting")}
                 </p>
               )}
 
@@ -142,29 +144,29 @@ export default function PestScanner() {
   <div className="flex items-center gap-2 mb-1">
     <span className="text-red-600 text-xl">🩺</span>
     <h3 className="text-sm font-bold text-red-700 uppercase tracking-wide">
-      Diagnosis
+      {t("pest_diagnosis_title")}
     </h3>
   </div>
 
   <div className="text-2xl font-extrabold text-red-700 leading-tight">
 
     {/* If SAFE */}
-    {result.status === "SAFE" && "No Pest Infection"}
+    {result.status === "SAFE" && t("pest_no_infection")}
 
     {/* If NOT SAFE → Show Pest Name Instead of Count */}
     {result.status !== "SAFE" &&
-      `${result.report?.[0]?.pest || "Pest Detected"}`}
+      `${result.report?.[0]?.pest || t("pest_detected")}`}
   </div>
 
   {result.status !== "SAFE" && (
     <p className="text-red-600 mt-1 text-sm">
-      AI detected harmful pest activity in the uploaded image.
+      {t("pest_detected_desc")}
     </p>
   )}
 
   {result.status === "SAFE" && (
     <p className="text-red-600 mt-1 text-sm">
-      AI did not find any harmful pests.
+      {t("pest_safe_desc")}
     </p>
   )}
 </div>
@@ -176,7 +178,7 @@ export default function PestScanner() {
     <div className="flex items-center gap-2 mb-2">
       <span className="text-green-700 text-xl">🌱</span>
       <h3 className="text-sm font-bold text-green-800 uppercase tracking-wide">
-        Suggested Cure
+        {t("pest_cure_title")}
       </h3>
     </div>
 

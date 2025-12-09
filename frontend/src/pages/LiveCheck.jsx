@@ -4,10 +4,12 @@ import Sidebar from "../components/dashboard/Sidebar";
 import { useAuth } from "../contexts/authcontext/Authcontext";
 import { Navigate, useNavigate } from "react-router-dom";
 import { doSignOut } from "../firebase/auth";
+import { useTranslation } from "react-i18next";
 
 export default function LiveCheck() {
   const { currentUser, userLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -38,7 +40,7 @@ export default function LiveCheck() {
 
   const checkDisease = async () => {
     if (!file) {
-      alert("Please upload an image!");
+      alert(t("live_upload_required"));
       return;
     }
     setLoading(true);
@@ -55,7 +57,7 @@ export default function LiveCheck() {
       setResult(data);
     } catch (err) {
       console.error(err);
-      alert("Server error! Did you enable CORS?");
+      alert(t("live_server_error"));
     } finally {
       setLoading(false);
     }
@@ -68,9 +70,9 @@ export default function LiveCheck() {
 
       <div className="pt-28 lg:ml-64 px-8">  {/* increased top padding */}
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">🌿 Live Disease Check</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-3">🌿 {t("live_title")}</h2>
           <p className="text-gray-600 mb-8">
-            Upload a leaf image and get instant AI-powered diagnosis.
+            {t("live_subtitle")}
           </p>
 
           <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-200 p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -85,7 +87,7 @@ export default function LiveCheck() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <p className="text-gray-400">No image selected</p>
+                  <p className="text-gray-400">{t("live_no_image")}</p>
                 )}
               </div>
 
@@ -93,7 +95,7 @@ export default function LiveCheck() {
                 htmlFor="fileInput"
                 className="mt-6 cursor-pointer bg-green-700 hover:bg-green-900 text-white px-6 py-3 rounded-lg font-medium text-lg"
               >
-                📁 Upload Leaf Image
+                📁 {t("live_upload_button")}
               </label>
 
               <input
@@ -105,7 +107,7 @@ export default function LiveCheck() {
               />
 
               {fileName && (
-                <p className="mt-3 text-sm text-gray-500">Selected: {fileName}</p>
+                <p className="mt-3 text-sm text-gray-500">{t("live_selected_prefix")} {fileName}</p>
               )}
             </div>
 
@@ -118,12 +120,12 @@ export default function LiveCheck() {
                   loading ? "bg-gray-400" : "bg-green-700 hover:bg-green-900"
                 }`}
               >
-                {loading ? "Analyzing..." : "Analyze Disease"}
+                {loading ? t("live_analyzing") : t("live_analyze_button")}
               </button>
 
               {loading && (
                 <p className="text-green-800 mt-3 font-medium">
-                  ⏳ Processing... Please wait.
+                  ⏳ {t("live_processing")}
                 </p>
               )}
 
@@ -133,7 +135,7 @@ export default function LiveCheck() {
     {/* DIAGNOSIS CARD — COMPACT */}
     <div className="bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-red-700 uppercase flex items-center gap-2">
-        🩺 Diagnosis
+        🩺 {t("live_diagnosis")}
       </h3>
 
       <div className="text-xl font-bold text-red-700 mt-1">
@@ -141,7 +143,7 @@ export default function LiveCheck() {
       </div>
 
       <p className="text-xs text-red-600 mt-1">
-        AI detected symptoms based on leaf texture.
+        {t("live_diagnosis_desc")}
       </p>
     </div>
 
@@ -149,7 +151,7 @@ export default function LiveCheck() {
     {/* SUGGESTED CURE — COMPACT */}
     <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-green-800 uppercase flex items-center gap-2">
-        🌱 Suggested Cure
+        🌱 {t("live_cure")}
       </h3>
 
       <div className="bg-white p-3 text-sm rounded-md border border-green-200 shadow-inner mt-2 leading-snug">
@@ -161,7 +163,7 @@ export default function LiveCheck() {
     {/* BUY MEDICINE — COMPACT */}
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-blue-800 uppercase flex items-center gap-2">
-        🛒 Buy Medicine
+        🛒 {t("live_buy_medicine")}
       </h3>
 
       <div className="grid grid-cols-2 gap-3 mt-3">

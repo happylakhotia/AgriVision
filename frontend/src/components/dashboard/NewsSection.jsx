@@ -4,11 +4,13 @@ import { CloudRain, Cloud, Sun, CloudDrizzle, Wind, Thermometer, MapPin, Loader2
 import { useAuth } from "../../contexts/authcontext/Authcontext";
 import { db } from "../../firebase/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
+import { useTranslation } from "react-i18next";
 
 const OPENWEATHER_API_KEY = "6af24b4f823c9044d1cbad4c94379de5";
 const OPENWEATHER_BASE_URL = "https://api.openweathermap.org/data/2.5";
 
 const NewsSection = ({ selectedField }) => {
+  const { t } = useTranslation();
   const { currentUser } = useAuth();
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -367,8 +369,8 @@ const NewsSection = ({ selectedField }) => {
         );
         if (rainForecast) {
           news.push({
-            title: "Rain Alert: Precipitation expected",
-            desc: `${rainForecast.weather[0].description.charAt(0).toUpperCase() + rainForecast.weather[0].description.slice(1)} expected around ${new Date(rainForecast.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Prepare for wet conditions.`,
+            title: t("weather_rain_title"),
+            desc: t("weather_rain_desc", { time: new Date(rainForecast.dt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
             time: formatTime(rainForecast.dt),
             icon: CloudRain,
             border: "border-blue-300",
@@ -383,8 +385,8 @@ const NewsSection = ({ selectedField }) => {
     // Temperature alerts
     if (current.main.temp > 35) {
       news.push({
-        title: "Heat Alert: High temperature",
-        desc: `Temperature is ${Math.round(current.main.temp)}°C. Ensure adequate irrigation and protect crops from heat stress.`,
+        title: t("weather_heat_title"),
+        desc: t("weather_heat_desc", { value: Math.round(current.main.temp) }),
         time: formatTime(current.dt),
         icon: Thermometer,
         border: "border-red-300",
@@ -394,8 +396,8 @@ const NewsSection = ({ selectedField }) => {
       });
     } else if (current.main.temp < 10) {
       news.push({
-        title: "Cold Alert: Low temperature",
-        desc: `Temperature is ${Math.round(current.main.temp)}°C. Protect sensitive crops from frost damage.`,
+        title: t("weather_cold_title"),
+        desc: t("weather_cold_desc", { value: Math.round(current.main.temp) }),
         time: formatTime(current.dt),
         icon: Thermometer,
         border: "border-cyan-300",
@@ -408,8 +410,8 @@ const NewsSection = ({ selectedField }) => {
     // Wind alert
     if (current.wind.speed > 10) {
       news.push({
-        title: "Wind Alert: Strong winds detected",
-        desc: `Wind speed is ${current.wind.speed} m/s. Secure structures and protect crops from wind damage.`,
+        title: t("weather_wind_title"),
+        desc: t("weather_wind_desc", { value: current.wind.speed }),
         time: formatTime(current.dt),
         icon: Wind,
         border: "border-orange-300",
@@ -422,8 +424,8 @@ const NewsSection = ({ selectedField }) => {
     // Humidity alert
     if (current.main.humidity > 85) {
       news.push({
-        title: "High Humidity Alert",
-        desc: `Humidity is ${current.main.humidity}%. High humidity can promote fungal diseases. Monitor crops closely.`,
+        title: t("weather_humidity_title"),
+        desc: t("weather_humidity_desc", { value: current.main.humidity }),
         time: formatTime(current.dt),
         icon: CloudDrizzle,
         border: "border-teal-300",
@@ -442,7 +444,7 @@ const NewsSection = ({ selectedField }) => {
     <div className="mt-6 bg-white rounded-xl border border-gray-200 shadow-sm">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-700">Live Weather News</h2>
+          <h2 className="text-lg font-semibold text-gray-700">{t("weather_title")}</h2>
           {weatherData && (
             <div className="flex flex-col gap-1 mt-1">
               <p className="text-xs text-gray-500 flex items-center gap-1">
@@ -452,14 +454,14 @@ const NewsSection = ({ selectedField }) => {
               {usingFieldLocation && fieldLocation && (
                 <p className="text-xs text-green-600 flex items-center gap-1 font-medium">
                   <MapPinned className="h-3 w-3" />
-                  Using Field Location: {fieldLocation.fieldName}
+                  {t("weather_using_field")} {fieldLocation.fieldName}
                   {fieldLocation.cropName && ` (${fieldLocation.cropName})`}
                 </p>
               )}
               {!usingFieldLocation && (
                 <p className="text-xs text-blue-600 flex items-center gap-1">
                   <MapPin className="h-3 w-3" />
-                  Using Your Live Location
+                  {t("weather_using_live")}
                 </p>
               )}
             </div>
@@ -470,7 +472,7 @@ const NewsSection = ({ selectedField }) => {
             <button
               onClick={handleRetry}
               className="p-1.5 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
-              title="Refresh weather data"
+              title={t("weather_refresh_title")}
             >
               <RefreshCw className="h-5 w-5" />
             </button>
@@ -485,9 +487,9 @@ const NewsSection = ({ selectedField }) => {
         {loading && !weatherData && (
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 text-green-600 animate-spin mb-3" />
-            <span className="text-gray-600 font-medium">Loading weather data...</span>
+            <span className="text-gray-600 font-medium">{t("weather_loading")}</span>
             <span className="text-xs text-gray-400 mt-1">
-              {usingFieldLocation ? "Getting field weather..." : "Getting your location..."}
+              {usingFieldLocation ? t("weather_getting_field") : t("weather_getting_live")}
             </span>
           </div>
         )}
@@ -497,7 +499,7 @@ const NewsSection = ({ selectedField }) => {
             <div className="flex items-start gap-2 mb-3">
               <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-red-700 font-medium mb-1">Location Required</p>
+                <p className="text-sm text-red-700 font-medium mb-1">{t("weather_location_required")}</p>
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             </div>
@@ -507,18 +509,18 @@ const NewsSection = ({ selectedField }) => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-md transition-colors shadow-sm"
               >
                 <MapPin className="h-4 w-4" />
-                Enable Location Now
+                {t("weather_enable_now")}
               </button>
               <button
                 onClick={handleRetry}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-md transition-colors"
               >
                 <RefreshCw className="h-4 w-4" />
-                Try Again
+                {t("weather_try_again")}
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              Tip: Draw your field in "Farm Selection" to get weather for your specific field location.
+              {t("weather_tip")}
             </p>
           </div>
         )}
@@ -526,7 +528,7 @@ const NewsSection = ({ selectedField }) => {
         {!loading && !error && news.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <Cloud className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-            <p>No weather updates available at the moment.</p>
+            <p>{t("weather_no_updates")}</p>
           </div>
         )}
 
