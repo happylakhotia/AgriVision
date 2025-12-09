@@ -114,7 +114,7 @@ export const analyzeNDVI = async (req, res) => {
     // Ab hum URL mein Query Parameter use kar rahe hain: ?model_type=ndvi
     const targetApiUrl = `${AI_BASE_URL}/predict?model_type=${modelParam}`;
     
-    console.log(`🚀 Sending 5-Band TIFF to AI Model: ${modelParam}...`);
+    console.log(` Sending 5-Band TIFF to AI Model: ${modelParam}...`);
     
     const form = new FormData();
     form.append('file', Buffer.from(sentinelResponse.data), { filename: 'sentinel_5band.tiff' });
@@ -123,7 +123,7 @@ export const analyzeNDVI = async (req, res) => {
       headers: { ...form.getHeaders() }
     });
 
-    console.log("✅ Analysis Complete");
+    console.log(" Analysis Complete");
     
     // 6. Response to Frontend
     return res.json({
@@ -141,13 +141,13 @@ export const analyzeNDVI = async (req, res) => {
        // Error handling logic (Same as before)
        try {
            const errorData = error.response.data instanceof Buffer ? error.response.data.toString() : JSON.stringify(error.response.data);
-           console.error("❌ API ERROR:", errorData);
+           console.error(" API ERROR:", errorData);
            errorMessage = `External API Error: ${errorData}`;
             } catch (e) {
            errorMessage = "Unknown Binary Error";
             }
         } else {
-        console.error("❌ Code Error:", error.message);
+        console.error(" Code Error:", error.message);
         errorMessage = error.message;
     }
     res.status(500).json({ error: errorMessage });
