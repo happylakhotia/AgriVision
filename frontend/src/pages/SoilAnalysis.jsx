@@ -6,10 +6,12 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { doSignOut } from "../firebase/auth";
 import { rtdb } from "../firebase/firebase";
 import { ref, query, limitToLast, get, orderByKey, remove } from "firebase/database";
+import { useTranslation } from "react-i18next";
 
 const SoilAnalysis = () => {
   const { currentUser, userLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,7 +40,7 @@ const SoilAnalysis = () => {
       const snapshot = await get(soilQuery);
 
       if (!snapshot.exists()) {
-        setError("No soil data found in Realtime DB.");
+        setError(t("soil_no_data"));
         setResults(null);
         setEntries([]);
         return;
@@ -68,7 +70,7 @@ const SoilAnalysis = () => {
       });
     } catch (err) {
       console.error(err);
-      setError("Failed to load soil data from Realtime");
+      setError(t("soil_load_failed"));
     } finally {
       setLoading(false);
     }
@@ -97,7 +99,7 @@ const SoilAnalysis = () => {
 
   const handleDelete = async () => {
     if (!selectedEntry) return;
-    const confirmed = window.confirm("Delete this soil record from Realtime ?");
+    const confirmed = window.confirm(t("soil_delete_confirm"));
     if (!confirmed) return;
     setDeleting(true);
     setError("");
@@ -107,7 +109,7 @@ const SoilAnalysis = () => {
       await fetchLatestSoilData();
     } catch (err) {
       console.error(err);
-      setError("Failed to delete record. Try again.");
+      setError(t("soil_delete_failed"));
     } finally {
       setDeleting(false);
     }
@@ -123,7 +125,7 @@ const SoilAnalysis = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-semibold text-gray-900 tracking-tight mb-2">
-              🌱 Smart Agriculture System
+              🌱 {t("soil_title")}
             </h1>
           </div>
 
@@ -139,13 +141,13 @@ const SoilAnalysis = () => {
                       : "bg-green-600 hover:bg-green-700"
                   }`}
               >
-                {loading ? "Loading..." : "Refresh Latest Data"}
+                {loading ? t("loading") : t("soil_refresh")}
               </button>
 
               {entries.length > 0 && (
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <label className="text-sm font-semibold text-gray-700">
-                    Record:
+                    {t("soil_record_label")}
                   </label>
                   <select
                     value={selectedEntry || ""}
@@ -168,15 +170,14 @@ const SoilAnalysis = () => {
                             : "bg-red-500 hover:bg-red-600"
                         }`}
                     >
-                      {deleting ? "Deleting..." : "Delete"}
+                      {deleting ? t("soil_deleting") : t("soil_delete")}
                     </button>
                 </div>
               )}
             </div>
 
             <div className="mt-4 text-sm text-gray-500 text-center sm:text-left">
-              Viewing the latest soil packets from `soil` in Realtime. Use Refresh
-              to pull new readings or pick a specific record.
+              {t("soil_description")}
             </div>
 
             {error && (
@@ -193,7 +194,7 @@ const SoilAnalysis = () => {
 
             {!loading && !error && !results && (
               <div className="mt-6 text-center text-sm text-gray-600 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-4">
-                No readings loaded yet. Click “Refresh Latest Data”.
+                {t("soil_no_readings")}
               </div>
             )}
           </div>
@@ -203,15 +204,15 @@ const SoilAnalysis = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Latest Soil Snapshot
+                    {t("soil_snapshot_title")}
                   </h2>
                   <p className="text-sm text-gray-500">
-                    Switch records above to compare.
+                    {t("soil_snapshot_sub")}
                   </p>
                 </div>
                 {results.sourceId && (
                   <span className="text-xs font-semibold px-3 py-1 rounded-full bg-green-50 border border-green-200 text-green-700">
-                    ID: {results.sourceId}
+                    {t("soil_id_prefix")} {results.sourceId}
                   </span>
                 )}
               </div>
@@ -219,12 +220,12 @@ const SoilAnalysis = () => {
               {/* Sensor Values Grid */}
  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8 md:gap-10">
   {[
-    { label: "Nitrogen (N)", value: results.readings?.nitrogen, unit: "mg/kg" },
-    { label: "Phosphorus (P)", value: results.readings?.phosphorus, unit: "mg/kg" },
-    { label: "Potassium (K)", value: results.readings?.potassium, unit: "mg/kg" },
-    { label: "Moisture", value: results.readings?.soil_moisture, unit: "%" },
-    { label: "Temperature", value: results.readings?.air_temperature, unit: "°C" },
-    { label: "Humidity", value: results.readings?.humidity, unit: "%" },
+    { label: t("soil_label_n"), value: results.readings?.nitrogen, unit: t("soil_unit_mgkg") },
+    { label: t("soil_label_p"), value: results.readings?.phosphorus, unit: t("soil_unit_mgkg") },
+    { label: t("soil_label_k"), value: results.readings?.potassium, unit: t("soil_unit_mgkg") },
+    { label: t("soil_label_moisture"), value: results.readings?.soil_moisture, unit: t("soil_unit_percent") },
+    { label: t("soil_label_temp"), value: results.readings?.air_temperature, unit: t("soil_unit_temp") },
+    { label: t("soil_label_humidity"), value: results.readings?.humidity, unit: t("soil_unit_percent") },
   ].map((item, index) => (
     <div
       key={index}

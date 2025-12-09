@@ -160,5 +160,28 @@
         "description": "Minimal vegetation activity. Could be dormant, harvested, or bare soil."
       }
     }
-  }
+  },
+  "soil_title": "Smart Agriculture System",
+  "soil_refresh": "Refresh Latest Data",
+  "soil_record_label": "Record:",
+  "soil_deleting": "Deleting...",
+  "soil_delete": "Delete",
+  "soil_delete_confirm": "Delete this soil record from Realtime ?",
+  "soil_delete_failed": "Failed to delete record. Try again.",
+  "soil_description": "Viewing the latest soil packets from `soil` in Realtime. Use Refresh to pull new readings or pick a specific record.",
+  "soil_no_data": "No soil data found in Realtime DB.",
+  "soil_load_failed": "Failed to load soil data from Realtime",
+  "soil_no_readings": "No readings loaded yet. Click “Refresh Latest Data”.",
+  "soil_snapshot_title": "Latest Soil Snapshot",
+  "soil_snapshot_sub": "Switch records above to compare.",
+  "soil_id_prefix": "ID:",
+  "soil_label_n": "Nitrogen (N)",
+  "soil_label_p": "Phosphorus (P)",
+  "soil_label_k": "Potassium (K)",
+  "soil_label_moisture": "Moisture",
+  "soil_label_temp": "Temperature",
+  "soil_label_humidity": "Humidity",
+  "soil_unit_mgkg": "mg/kg",
+  "soil_unit_percent": "%",
+  "soil_unit_temp": "°C"
 }
